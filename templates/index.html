@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bidprentjes Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Bidprentjes Manager</h1>
+        <div class="mb-3">
+            <a href="/web/create" class="btn btn-primary">Create New</a>
+            <a href="/web/upload" class="btn btn-success">Upload CSV</a>
+        </div>
+        
+        <div class="mb-3">
+            <div class="input-group">
+                <input type="text" id="search" class="form-control" placeholder="Search by name, place or year..." value="{{.searchQuery}}">
+                <button class="btn btn-primary" type="button" id="searchButton">
+                    Search
+                </button>
+            </div>
+            <small class="form-text text-muted">
+                Search by name, place, or year (e.g., "Jan Amsterdam 1900"). Years will match both birth and death years.
+            </small>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Voornaam</th>
+                    <th>Tussenvoegsel</th>
+                    <th>Achternaam</th>
+                    <th>Geboortedatum</th>
+                    <th>Geboorteplaats</th>
+                    <th>Overlijdensdatum</th>
+                    <th>Overlijdensplaats</th>
+                    <th>Scan</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="bidprentjesTable">
+                {{range .data.Items}}
+                <tr>
+                    <td>{{.Voornaam}}</td>
+                    <td>{{.Tussenvoegsel}}</td>
+                    <td>{{.Achternaam}}</td>
+                    <td>{{.Geboortedatum.Format "02-01-2006"}}</td>
+                    <td>{{.Geboorteplaats}}</td>
+                    <td>{{.Overlijdensdatum.Format "02-01-2006"}}</td>
+                    <td>{{.Overlijdensplaats}}</td>
+                    <td>
+                        {{if .Scan}}
+                            <span class="badge bg-success">Yes</span>
+                        {{else}}
+                            <span class="badge bg-secondary">No</span>
+                        {{end}}
+                    </td>
+                    <td>
+                        <a href="/web/edit/{{.ID}}" class="btn btn-sm btn-primary">Edit</a>
+                        <button onclick="deleteBidprentje('{{.ID}}')" class="btn btn-sm btn-danger">Delete</button>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+
+        <nav aria-label="Page navigation">
+            <ul class="pagination">
+                {{if gt .data.Page 1}}
+                <li class="page-item">
+                    <a class="page-link" href="/web?page={{subtract .data.Page 1}}">&laquo; Previous</a>
+                </li>
+                {{end}}
+                
+                {{$totalPages := divide .data.TotalCount .data.PageSize}}
+                {{range $i := sequence $totalPages}}
+                <li class="page-item {{if eq (add $i 1) $.data.Page}}active{{end}}">
+                    <a class="page-link" href="/web?page={{add $i 1}}">{{add $i 1}}</a>
+                </li>
+                {{end}}
+
+                {{if lt .data.Page $totalPages}}
+                <li class="page-item">
+                    <a class="page-link" href="/web?page={{add .data.Page 1}}">Next &raquo;</a>
+                </li>
+                {{end}}
+            </ul>
+        </nav>
+    </div>
+
+    <script>
+        let currentPage = {{.data.Page}};
+        
+        document.getElementById('searchButton').addEventListener('click', performSearch);
+        document.getElementById('search').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        async function performSearch() {
+            const searchQuery = document.getElementById('search').value;
+            
+            if (searchQuery.length < 2) {
+                window.location.href = '/web?page=1';
+                return;
+            }
+            
+            window.location.href = `/web?query=${encodeURIComponent(searchQuery)}&page=1`;
+        }
+
+        async function changePage(page) {
+            const searchQuery = document.getElementById('search').value;
+            if (searchQuery.length >= 2) {
+                window.location.href = `/web?query=${encodeURIComponent(searchQuery)}&page=${page}`;
+            } else {
+                window.location.href = `/web?page=${page}`;
+            }
+        }
+
+        function updatePagination(data) {
+            const totalPages = Math.ceil(data.total_count / data.page_size);
+            const pagination = document.querySelector('.pagination');
+            const searchQuery = document.getElementById('search').value;
+            let html = '';
+
+            if (data.page > 1) {
+                html += `<li class="page-item">
+                    <a class="page-link" href="/web?${searchQuery ? 'query=' + encodeURIComponent(searchQuery) + '&' : ''}page=${data.page - 1}">&laquo; Previous</a>
+                </li>`;
+            }
+
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<li class="page-item ${i === data.page ? 'active' : ''}">
+                    <a class="page-link" href="/web?${searchQuery ? 'query=' + encodeURIComponent(searchQuery) + '&' : ''}page=${i}">${i}</a>
+                </li>`;
+            }
+
+            if (data.page < totalPages) {
+                html += `<li class="page-item">
+                    <a class="page-link" href="/web?${searchQuery ? 'query=' + encodeURIComponent(searchQuery) + '&' : ''}page=${data.page + 1}">Next &raquo;</a>
+                </li>`;
+            }
+
+            pagination.innerHTML = html;
+        }
+
+        async function deleteBidprentje(id) {
+            if (!confirm('Are you sure?')) return;
+            
+            await fetch(`/bidprentjes/${id}`, {method: 'DELETE'});
+            location.reload();
+        }
+    </script>
+</body>
+</html> 
