@@ -27,7 +27,8 @@
 				"esbenp.prettier-vscode",
 				"ms-vscode.makefile-tools",
 				"ms-python.python",
-				"mechatroner.rainbow-csv"
+				"mechatroner.rainbow-csv",
+				"ms-azuretools.vscode-docker"
 			]
 		}
 	}
