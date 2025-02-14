@@ -17,7 +17,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o bidprentjes-api
 
 # Final stage
-FROM alpine:3.18
+FROM alpine:3.18 AS final
 
 # Add non root user
 RUN adduser -D -g '' appuser
