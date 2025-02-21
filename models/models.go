@@ -16,19 +16,15 @@ type Bidprentje struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
-type BidprentjeSearch struct {
-	Query string `json:"query"`
+type SearchParams struct {
+	Query    string `form:"query"`
+	Page     int    `form:"page,default=1"`
+	PageSize int    `form:"page_size,default=25"`
 }
 
 type PaginatedResponse struct {
-	Items      []*Bidprentje `json:"items"`
-	TotalCount int           `json:"total_count"`
-	Page       int           `json:"page"`
-	PageSize   int           `json:"page_size"`
-}
-
-type ListParams struct {
-	Page     int    `form:"page"`
-	PageSize int    `form:"page_size"`
-	Query    string `form:"query"`
+	Items      []Bidprentje `json:"items"`
+	TotalCount int          `json:"total_count"`
+	Page       int          `json:"page"`
+	PageSize   int          `json:"page_size"`
 }

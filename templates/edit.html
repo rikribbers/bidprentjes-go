@@ -7,39 +7,38 @@
 <body>
     <div class="container mt-4">
         <h1>Edit Bidprentje</h1>
-        <form id="editForm" class="mt-4">
-            <input type="hidden" name="id" value="{{.bidprentje.ID}}">
+        <form id="editForm">
             <div class="mb-3">
-                <label class="form-label">Voornaam</label>
-                <input type="text" name="voornaam" class="form-control" value="{{.bidprentje.Voornaam}}" required>
+                <label for="voornaam" class="form-label">Voornaam</label>
+                <input type="text" class="form-control" id="voornaam" value="{{.bidprentje.Voornaam}}" required>
             </div>
             <div class="mb-3">
-                <label class="form-label">Tussenvoegsel</label>
-                <input type="text" name="tussenvoegsel" class="form-control" value="{{.bidprentje.Tussenvoegsel}}">
+                <label for="tussenvoegsel" class="form-label">Tussenvoegsel</label>
+                <input type="text" class="form-control" id="tussenvoegsel" value="{{.bidprentje.Tussenvoegsel}}">
             </div>
             <div class="mb-3">
-                <label class="form-label">Achternaam</label>
-                <input type="text" name="achternaam" class="form-control" value="{{.bidprentje.Achternaam}}" required>
+                <label for="achternaam" class="form-label">Achternaam</label>
+                <input type="text" class="form-control" id="achternaam" value="{{.bidprentje.Achternaam}}" required>
             </div>
             <div class="mb-3">
-                <label class="form-label">Geboortedatum</label>
-                <input type="date" name="geboortedatum" class="form-control" value="{{.bidprentje.Geboortedatum.Format "2006-01-02"}}" required>
+                <label for="geboortedatum" class="form-label">Geboortedatum</label>
+                <input type="date" class="form-control" id="geboortedatum" value="{{.bidprentje.Geboortedatum.Format "2006-01-02"}}" required>
             </div>
             <div class="mb-3">
-                <label class="form-label">Geboorteplaats</label>
-                <input type="text" name="geboorteplaats" class="form-control" value="{{.bidprentje.Geboorteplaats}}" required>
+                <label for="geboorteplaats" class="form-label">Geboorteplaats</label>
+                <input type="text" class="form-control" id="geboorteplaats" value="{{.bidprentje.Geboorteplaats}}" required>
             </div>
             <div class="mb-3">
-                <label class="form-label">Overlijdensdatum</label>
-                <input type="date" name="overlijdensdatum" class="form-control" value="{{.bidprentje.Overlijdensdatum.Format "2006-01-02"}}" required>
+                <label for="overlijdensdatum" class="form-label">Overlijdensdatum</label>
+                <input type="date" class="form-control" id="overlijdensdatum" value="{{.bidprentje.Overlijdensdatum.Format "2006-01-02"}}" required>
             </div>
             <div class="mb-3">
-                <label class="form-label">Overlijdensplaats</label>
-                <input type="text" name="overlijdensplaats" class="form-control" value="{{.bidprentje.Overlijdensplaats}}" required>
+                <label for="overlijdensplaats" class="form-label">Overlijdensplaats</label>
+                <input type="text" class="form-control" id="overlijdensplaats" value="{{.bidprentje.Overlijdensplaats}}" required>
             </div>
             <div class="mb-3">
-                <label class="form-label">Scan</label>
-                <select name="scan" class="form-control">
+                <label for="scan" class="form-label">Scan</label>
+                <select class="form-control" id="scan">
                     <option value="true" {{if .bidprentje.Scan}}selected{{end}}>Yes</option>
                     <option value="false" {{if not .bidprentje.Scan}}selected{{end}}>No</option>
                 </select>
@@ -48,31 +47,5 @@
             <a href="/web" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
-
-    <script>
-        document.getElementById('editForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(e.target);
-            const data = {
-                voornaam: formData.get('voornaam'),
-                tussenvoegsel: formData.get('tussenvoegsel'),
-                achternaam: formData.get('achternaam'),
-                geboortedatum: new Date(formData.get('geboortedatum')).toISOString(),
-                geboorteplaats: formData.get('geboorteplaats'),
-                overlijdensdatum: new Date(formData.get('overlijdensdatum')).toISOString(),
-                overlijdensplaats: formData.get('overlijdensplaats'),
-                scan: formData.get('scan') === 'true'
-            };
-            
-            await fetch('/bidprentjes/' + formData.get('id'), {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-            
-            window.location.href = '/web';
-        });
-    </script>
 </body>
 </html> 

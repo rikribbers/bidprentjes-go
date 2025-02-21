@@ -1,3 +1,4 @@
+import csv
 import random
 from datetime import datetime, timedelta
 
@@ -24,16 +25,19 @@ def generate_death_date(birth_date):
     return birth_date + timedelta(days=age*365)
 
 # Create CSV file
-with open('sample_bidprentjes.csv', 'w') as f:
-    # Write header
-    f.write('voornaam,tussenvoegsel,achternaam,geboortedatum,geboorteplaats,overlijdensdatum,overlijdensplaats,scan\n')
+with open('test_data.csv', 'w', newline='') as f:
+    writer = csv.writer(f)
     
-    # Generate 1000 entries
-    for _ in range(1000):
+    # Write header
+    writer.writerow(['voornaam', 'tussenvoegsel', 'achternaam', 'geboortedatum', 
+                    'geboorteplaats', 'overlijdensdatum', 'overlijdensplaats', 'scan'])
+    
+    # Generate 10000 entries
+    for _ in range(10000):
         birth_date = generate_birth_date()
         death_date = generate_death_date(birth_date)
         
-        entry = [
+        row = [
             random.choice(voornamen),
             random.choice(tussenvoegsels),
             random.choice(achternamen),
@@ -44,6 +48,6 @@ with open('sample_bidprentjes.csv', 'w') as f:
             str(random.choice([True, False])).lower()
         ]
         
-        f.write(','.join(entry) + '\n')
+        writer.writerow(row)
 
-print("Generated sample_bidprentjes.csv with 1000 entries") 
+print("Generated test_data.csv with 10,000 entries") 

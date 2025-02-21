@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.20-alpine AS builder
+FROM golang:1.21-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o bidprentjes-api
 
 # Final stage
-FROM alpine:3.18 AS final
+FROM alpine:3.18
 
 # Add non root user
 RUN adduser -D -g '' appuser
