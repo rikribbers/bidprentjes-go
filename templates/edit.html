@@ -8,6 +8,7 @@
     <div class="container mt-4">
         <h1>Edit Bidprentje</h1>
         <form id="editForm">
+            <input type="hidden" id="id" value="{{.bidprentje.ID}}">
             <div class="mb-3">
                 <label for="voornaam" class="form-label">Voornaam</label>
                 <input type="text" class="form-control" id="voornaam" value="{{.bidprentje.Voornaam}}" required>
@@ -47,5 +48,42 @@
             <a href="/web" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
+
+    <script>
+    document.getElementById('editForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const id = document.getElementById('id').value;
+        const data = {
+            voornaam: document.getElementById('voornaam').value,
+            tussenvoegsel: document.getElementById('tussenvoegsel').value,
+            achternaam: document.getElementById('achternaam').value,
+            geboortedatum: new Date(document.getElementById('geboortedatum').value).toISOString(),
+            geboorteplaats: document.getElementById('geboorteplaats').value,
+            overlijdensdatum: new Date(document.getElementById('overlijdensdatum').value).toISOString(),
+            overlijdensplaats: document.getElementById('overlijdensplaats').value,
+            scan: document.getElementById('scan').value === 'true'
+        };
+
+        try {
+            const response = await fetch(`/api/bidprentjes/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                window.location.href = '/web';
+            } else {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to update bidprentje');
+            }
+        } catch (error) {
+            alert(error.message);
+        }
+    });
+    </script>
 </body>
 </html> 

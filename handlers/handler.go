@@ -8,7 +8,6 @@ import (
 	"bidprentjes-api/store"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -23,17 +22,24 @@ func NewHandler() *Handler {
 
 func (h *Handler) CreateBidprentje(c *gin.Context) {
 	var bidprentje models.Bidprentje
-	if err := c.ShouldBindJSON(&bidprentje); err != nil {
+	if err := c.BindJSON(&bidprentje); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	bidprentje.ID = uuid.New().String()
+	// Validate required fields
+	if bidprentje.ID == "" || bidprentje.Voornaam == "" || bidprentje.Achternaam == "" ||
+		bidprentje.Geboorteplaats == "" || bidprentje.Overlijdensplaats == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
+		return
+	}
+
+	// Set timestamps
 	bidprentje.CreatedAt = time.Now()
 	bidprentje.UpdatedAt = time.Now()
 
 	if err := h.store.Create(&bidprentje); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create bidprentje"})
 		return
 	}
 
@@ -53,13 +59,9 @@ func (h *Handler) GetBidprentje(c *gin.Context) {
 
 func (h *Handler) UpdateBidprentje(c *gin.Context) {
 	id := c.Param("id")
-	if _, exists := h.store.Get(id); !exists {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Bidprentje not found"})
-		return
-	}
 
 	var bidprentje models.Bidprentje
-	if err := c.ShouldBindJSON(&bidprentje); err != nil {
+	if err := c.BindJSON(&bidprentje); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -68,7 +70,7 @@ func (h *Handler) UpdateBidprentje(c *gin.Context) {
 	bidprentje.UpdatedAt = time.Now()
 
 	if err := h.store.Update(&bidprentje); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bidprentje"})
 		return
 	}
 

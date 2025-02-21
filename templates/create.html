@@ -9,36 +9,40 @@
         <h1>Create Bidprentje</h1>
         <form id="createForm">
             <div class="mb-3">
+                <label for="id" class="form-label">ID</label>
+                <input type="text" class="form-control" id="id" name="id" required>
+            </div>
+            <div class="mb-3">
                 <label for="voornaam" class="form-label">Voornaam</label>
-                <input type="text" class="form-control" id="voornaam" required>
+                <input type="text" class="form-control" id="voornaam" name="voornaam" required>
             </div>
             <div class="mb-3">
                 <label for="tussenvoegsel" class="form-label">Tussenvoegsel</label>
-                <input type="text" class="form-control" id="tussenvoegsel">
+                <input type="text" class="form-control" id="tussenvoegsel" name="tussenvoegsel">
             </div>
             <div class="mb-3">
                 <label for="achternaam" class="form-label">Achternaam</label>
-                <input type="text" class="form-control" id="achternaam" required>
+                <input type="text" class="form-control" id="achternaam" name="achternaam" required>
             </div>
             <div class="mb-3">
                 <label for="geboortedatum" class="form-label">Geboortedatum</label>
-                <input type="date" class="form-control" id="geboortedatum" required>
+                <input type="date" class="form-control" id="geboortedatum" name="geboortedatum" required>
             </div>
             <div class="mb-3">
                 <label for="geboorteplaats" class="form-label">Geboorteplaats</label>
-                <input type="text" class="form-control" id="geboorteplaats" required>
+                <input type="text" class="form-control" id="geboorteplaats" name="geboorteplaats" required>
             </div>
             <div class="mb-3">
                 <label for="overlijdensdatum" class="form-label">Overlijdensdatum</label>
-                <input type="date" class="form-control" id="overlijdensdatum" required>
+                <input type="date" class="form-control" id="overlijdensdatum" name="overlijdensdatum" required>
             </div>
             <div class="mb-3">
                 <label for="overlijdensplaats" class="form-label">Overlijdensplaats</label>
-                <input type="text" class="form-control" id="overlijdensplaats" required>
+                <input type="text" class="form-control" id="overlijdensplaats" name="overlijdensplaats" required>
             </div>
             <div class="mb-3">
                 <label for="scan" class="form-label">Scan</label>
-                <select class="form-control" id="scan">
+                <select class="form-control" id="scan" name="scan">
                     <option value="true">Yes</option>
                     <option value="false">No</option>
                 </select>
@@ -47,42 +51,42 @@
             <a href="/web" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
-</body>
-</html>
 
-<script>
-document.getElementById('createForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const data = {
-        voornaam: formData.get('voornaam'),
-        tussenvoegsel: formData.get('tussenvoegsel'),
-        achternaam: formData.get('achternaam'),
-        geboortedatum: new Date(formData.get('geboortedatum')).toISOString(),
-        geboorteplaats: formData.get('geboorteplaats'),
-        overlijdensdatum: new Date(formData.get('overlijdensdatum')).toISOString(),
-        overlijdensplaats: formData.get('overlijdensplaats'),
-        scan: formData.get('scan') === 'true'
-    };
+    <script>
+    document.getElementById('createForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const data = {
+            id: document.getElementById('id').value,
+            voornaam: document.getElementById('voornaam').value,
+            tussenvoegsel: document.getElementById('tussenvoegsel').value,
+            achternaam: document.getElementById('achternaam').value,
+            geboortedatum: new Date(document.getElementById('geboortedatum').value).toISOString(),
+            geboorteplaats: document.getElementById('geboorteplaats').value,
+            overlijdensdatum: new Date(document.getElementById('overlijdensdatum').value).toISOString(),
+            overlijdensplaats: document.getElementById('overlijdensplaats').value,
+            scan: document.getElementById('scan').value === 'true'
+        };
 
-    try {
-        const response = await fetch('/api/bidprentjes', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
+        try {
+            const response = await fetch('/api/bidprentjes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
 
-        if (response.ok) {
-            window.location.href = '/web';
-        } else {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to create bidprentje');
+            if (response.ok) {
+                window.location.href = '/web';
+            } else {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to create bidprentje');
+            }
+        } catch (error) {
+            alert(error.message);
         }
-    } catch (error) {
-        alert(error.message);
-    }
-});
-</script> 
+    });
+    </script>
+</body>
+</html> 

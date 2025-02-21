@@ -11,7 +11,6 @@ import (
 	"bidprentjes-api/models"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 func (h *Handler) WebIndex(c *gin.Context) {
@@ -40,7 +39,17 @@ func (h *Handler) WebCreate(c *gin.Context) {
 
 func (h *Handler) WebEdit(c *gin.Context) {
 	log.Printf("WebEdit handler called")
-	c.HTML(http.StatusOK, "edit.html", nil)
+	id := c.Param("id")
+
+	bidprentje, exists := h.store.Get(id)
+	if !exists {
+		c.Redirect(http.StatusFound, "/web")
+		return
+	}
+
+	c.HTML(http.StatusOK, "edit.html", gin.H{
+		"bidprentje": bidprentje,
+	})
 }
 
 func (h *Handler) WebSearch(c *gin.Context) {
@@ -95,23 +104,23 @@ func (h *Handler) UploadCSV(c *gin.Context) {
 			continue
 		}
 
-		if len(record) != 8 {
+		if len(record) != 9 {
 			continue
 		}
 
-		geboortedatum, _ := time.Parse("2006-01-02", record[3])
-		overlijdensdatum, _ := time.Parse("2006-01-02", record[5])
-		scan := record[7] == "true"
+		geboortedatum, _ := time.Parse("2006-01-02", record[4])
+		overlijdensdatum, _ := time.Parse("2006-01-02", record[6])
+		scan := record[8] == "true"
 
 		bidprentje := &models.Bidprentje{
-			ID:                uuid.New().String(),
-			Voornaam:          record[0],
-			Tussenvoegsel:     record[1],
-			Achternaam:        record[2],
+			ID:                record[0],
+			Voornaam:          record[1],
+			Tussenvoegsel:     record[2],
+			Achternaam:        record[3],
 			Geboortedatum:     geboortedatum,
-			Geboorteplaats:    record[4],
+			Geboorteplaats:    record[5],
 			Overlijdensdatum:  overlijdensdatum,
-			Overlijdensplaats: record[6],
+			Overlijdensplaats: record[7],
 			Scan:              scan,
 			CreatedAt:         time.Now(),
 			UpdatedAt:         time.Now(),
