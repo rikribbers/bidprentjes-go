@@ -59,24 +59,41 @@
         </div>
 
         {{if gt .data.TotalCount 0}}
-        <nav>
-            <ul class="pagination">
+        <nav aria-label="Page navigation">
+            <ul class="pagination pagination-sm justify-content-center" style="max-width: 500px; margin: 20px auto;">
                 {{if gt .data.Page 1}}
                 <li class="page-item">
-                    <a class="page-link" href="/search?query={{.searchQuery}}&page={{subtract .data.Page 1}}">&laquo; Previous</a>
+                    <a class="page-link" href="/search?page={{subtract .data.Page 1}}&query={{.searchQuery}}">&laquo;</a>
                 </li>
                 {{end}}
 
                 {{$totalPages := divide .data.TotalCount .data.PageSize}}
+                {{$currentPage := .data.Page}}
                 {{range $i := sequence $totalPages}}
-                <li class="page-item {{if eq (add $i 1) $.data.Page}}active{{end}}">
-                    <a class="page-link" href="/search?query={{$.searchQuery}}&page={{add $i 1}}">{{add $i 1}}</a>
-                </li>
+                    {{$page := add $i 1}}
+                    {{if or 
+                        (le $page 3) 
+                        (eq $page $currentPage)
+                        (eq $page (subtract $currentPage 1))
+                        (eq $page (add $currentPage 1))
+                        (ge $page (subtract $totalPages 2))
+                    }}
+                        <li class="page-item {{if eq $page $currentPage}}active{{end}}">
+                            <a class="page-link" href="/search?page={{$page}}&query={{$.searchQuery}}">{{$page}}</a>
+                        </li>
+                    {{else if or 
+                        (eq $page 4) 
+                        (eq $page (subtract $totalPages 3))
+                    }}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    {{end}}
                 {{end}}
 
                 {{if lt .data.Page $totalPages}}
                 <li class="page-item">
-                    <a class="page-link" href="/search?query={{.searchQuery}}&page={{add .data.Page 1}}">Next &raquo;</a>
+                    <a class="page-link" href="/search?page={{add .data.Page 1}}&query={{.searchQuery}}">&raquo;</a>
                 </li>
                 {{end}}
             </ul>

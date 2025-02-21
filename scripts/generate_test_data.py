@@ -81,8 +81,8 @@ with open('test_data.csv', 'w', newline='') as f:
     writer.writerow(['id', 'voornaam', 'tussenvoegsel', 'achternaam', 'geboortedatum', 
                     'geboorteplaats', 'overlijdensdatum', 'overlijdensplaats', 'scan'])
     
-    # Generate 10000 entries
-    for i in range(1, 10001):  # Start from 1 to 10000
+    # Generate 50000 entries
+    for i in range(1, 50001):  # Start from 1 to 50000
         birth_date = generate_birth_date()
         death_date = generate_death_date(birth_date)
         
@@ -100,4 +100,4 @@ with open('test_data.csv', 'w', newline='') as f:
         
         writer.writerow(row)
 
-print("Generated test_data.csv with 10,000 entries") 
+print("Generated test_data.csv with 50,000 entries") 
