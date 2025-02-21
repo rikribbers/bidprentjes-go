@@ -136,20 +136,26 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 	for _, b := range s.data {
 		score := 0
 		searchFields := []string{
+			strings.ToLower(b.ID),
 			strings.ToLower(b.Voornaam),
 			strings.ToLower(b.Tussenvoegsel),
 			strings.ToLower(b.Achternaam),
 			strings.ToLower(b.Geboorteplaats),
 			strings.ToLower(b.Overlijdensplaats),
-			// Full dates
 			b.Geboortedatum.Format("02-01-2006"),
 			b.Overlijdensdatum.Format("02-01-2006"),
-			// Month-year
 			b.Geboortedatum.Format("01-2006"),
 			b.Overlijdensdatum.Format("01-2006"),
-			// Year only
 			b.Geboortedatum.Format("2006"),
 			b.Overlijdensdatum.Format("2006"),
+		}
+
+		// First check for exact ID match
+		for _, word := range queryWords {
+			if strings.ToLower(b.ID) == word {
+				score += 100
+				continue
+			}
 		}
 
 		// Check each query word against each field
