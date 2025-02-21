@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"bidprentjes-api/models"
@@ -16,19 +15,31 @@ import (
 func (h *Handler) WebIndex(c *gin.Context) {
 	log.Printf("WebIndex handler called")
 
-	// Get page from query params, default to 1
-	page := 1
-	pageSize := 25
-	if p, err := strconv.Atoi(c.DefaultQuery("page", "1")); err == nil && p > 0 {
-		page = p
+	// Get search and pagination params
+	var params models.SearchParams
+	if err := c.BindQuery(&params); err != nil {
+		params.Page = 1
+		params.PageSize = 25
 	}
 
-	// Get data from store
-	response := h.store.List(page, pageSize)
-	log.Printf("Found %d items in store", len(response.Items))
+	// Get query from URL
+	params.Query = c.DefaultQuery("query", "")
+	log.Printf("Search query: %s, page: %d", params.Query, params.Page)
+
+	var response *models.PaginatedResponse
+	if params.Query != "" {
+		// If there's a search query, use search
+		response = h.store.Search(params)
+		log.Printf("Found %d items matching search", len(response.Items))
+	} else {
+		// Otherwise show all items
+		response = h.store.List(params.Page, params.PageSize)
+		log.Printf("Found %d items in store", len(response.Items))
+	}
 
 	c.HTML(http.StatusOK, "index.html", gin.H{
-		"data": response,
+		"data":        response,
+		"searchQuery": params.Query,
 	})
 }
 

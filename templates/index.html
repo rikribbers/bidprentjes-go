@@ -15,6 +15,16 @@
             </div>
         </div>
 
+        <form method="GET" action="/web" class="mb-4">
+            <div class="input-group">
+                <input type="text" name="query" class="form-control" placeholder="Search by name, place or year..." value="{{.searchQuery}}">
+                <button type="submit" class="btn btn-primary">Search</button>
+            </div>
+            <small class="form-text text-muted">
+                Search by name, place, or year (e.g., "Jan Amsterdam 1900"). Years will match both birth and death years.
+            </small>
+        </form>
+
         <div class="table-responsive">
             <table class="table">
                 <thead>
@@ -56,6 +66,31 @@
                 </tbody>
             </table>
         </div>
+
+        {{if gt .data.TotalCount 0}}
+        <nav>
+            <ul class="pagination justify-content-center">
+                {{if gt .data.Page 1}}
+                <li class="page-item">
+                    <a class="page-link" href="/web?page={{subtract .data.Page 1}}">&laquo; Previous</a>
+                </li>
+                {{end}}
+
+                {{$totalPages := divide .data.TotalCount .data.PageSize}}
+                {{range $i := sequence $totalPages}}
+                <li class="page-item {{if eq (add $i 1) $.data.Page}}active{{end}}">
+                    <a class="page-link" href="/web?page={{add $i 1}}">{{add $i 1}}</a>
+                </li>
+                {{end}}
+
+                {{if lt .data.Page $totalPages}}
+                <li class="page-item">
+                    <a class="page-link" href="/web?page={{add .data.Page 1}}">Next &raquo;</a>
+                </li>
+                {{end}}
+            </ul>
+        </nav>
+        {{end}}
     </div>
 
     <script>
