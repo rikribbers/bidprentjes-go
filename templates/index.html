@@ -6,8 +6,14 @@
 </head>
 <body>
     <div class="container mt-4">
-        <h1>Bidprentjes</h1>
-        <a href="/web/create" class="btn btn-primary mb-3">Create New</a>
+        <div class="row mb-3">
+            <div class="col">
+                <h1>Bidprentjes</h1>
+            </div>
+            <div class="col text-end">
+                <a href="/web/create" class="btn btn-primary">Create New</a>
+            </div>
+        </div>
 
         <div class="table-responsive">
             <table class="table">
@@ -16,6 +22,11 @@
                         <th>Voornaam</th>
                         <th>Tussenvoegsel</th>
                         <th>Achternaam</th>
+                        <th>Geboortedatum</th>
+                        <th>Geboorteplaats</th>
+                        <th>Overlijdensdatum</th>
+                        <th>Overlijdensplaats</th>
+                        <th>Scan</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -25,6 +36,17 @@
                         <td>{{.Voornaam}}</td>
                         <td>{{.Tussenvoegsel}}</td>
                         <td>{{.Achternaam}}</td>
+                        <td>{{.Geboortedatum.Format "02-01-2006"}}</td>
+                        <td>{{.Geboorteplaats}}</td>
+                        <td>{{.Overlijdensdatum.Format "02-01-2006"}}</td>
+                        <td>{{.Overlijdensplaats}}</td>
+                        <td>
+                            {{if .Scan}}
+                                <span class="badge bg-success">Yes</span>
+                            {{else}}
+                                <span class="badge bg-secondary">No</span>
+                            {{end}}
+                        </td>
                         <td>
                             <a href="/web/edit/{{.ID}}" class="btn btn-sm btn-primary">Edit</a>
                             <button onclick="deleteBidprentje('{{.ID}}')" class="btn btn-sm btn-danger">Delete</button>
@@ -35,5 +57,27 @@
             </table>
         </div>
     </div>
+
+    <script>
+    async function deleteBidprentje(id) {
+        if (!confirm('Are you sure you want to delete this bidprentje?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/bidprentjes/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to delete bidprentje');
+            }
+        } catch (error) {
+            alert('Error deleting bidprentje');
+        }
+    }
+    </script>
 </body>
 </html> 

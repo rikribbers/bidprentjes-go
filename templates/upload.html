@@ -7,6 +7,22 @@
 <body>
     <div class="container mt-4">
         <h1>Upload Bidprentjes</h1>
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">CSV Format</h5>
+                <p class="card-text">The CSV file should have the following columns:</p>
+                <pre class="bg-light p-2">voornaam,tussenvoegsel,achternaam,geboortedatum,geboorteplaats,overlijdensdatum,overlijdensplaats,scan</pre>
+                <p class="mt-2">Example:</p>
+                <pre class="bg-light p-2">Jan,van,Berg,1900-01-01,Amsterdam,1980-12-31,Rotterdam,true</pre>
+                <ul class="mt-3">
+                    <li>Dates should be in YYYY-MM-DD format</li>
+                    <li>Scan should be either 'true' or 'false'</li>
+                    <li>First line should be the header row</li>
+                </ul>
+            </div>
+        </div>
+
         <form id="uploadForm">
             <div class="mb-3">
                 <label for="csvFile" class="form-label">CSV File</label>
@@ -15,6 +31,57 @@
             <button type="submit" class="btn btn-primary">Upload</button>
             <a href="/web" class="btn btn-secondary">Cancel</a>
         </form>
+
+        <div id="progress" class="mt-4 d-none">
+            <div class="progress mb-2">
+                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+            </div>
+            <p class="text-center" id="status"></p>
+        </div>
     </div>
+
+    <script>
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const fileInput = document.getElementById('csvFile');
+        const file = fileInput.files[0];
+        if (!file) {
+            alert('Please select a file');
+            return;
+        }
+
+        const progress = document.getElementById('progress');
+        const progressBar = progress.querySelector('.progress-bar');
+        const status = document.getElementById('status');
+        
+        progress.classList.remove('d-none');
+        progressBar.style.width = '0%';
+        status.textContent = 'Uploading...';
+        
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            
+            if (response.ok) {
+                progressBar.style.width = '100%';
+                status.textContent = `Successfully uploaded ${result.count} records`;
+                setTimeout(() => window.location.href = '/web', 2000);
+            } else {
+                throw new Error(result.error || 'Upload failed');
+            }
+        } catch (error) {
+            progressBar.classList.add('bg-danger');
+            status.textContent = error.message;
+        }
+    });
+    </script>
 </body>
 </html> 

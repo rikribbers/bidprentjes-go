@@ -13,6 +13,9 @@
                 <input type="text" name="query" class="form-control" placeholder="Search by name, place or year..." value="{{.searchQuery}}">
                 <button type="submit" class="btn btn-primary">Search</button>
             </div>
+            <small class="form-text text-muted">
+                Search by name, place, or year (e.g., "Jan Amsterdam 1900"). Years will match both birth and death years.
+            </small>
         </form>
 
         {{if .data}}
@@ -23,6 +26,11 @@
                         <th>Voornaam</th>
                         <th>Tussenvoegsel</th>
                         <th>Achternaam</th>
+                        <th>Geboortedatum</th>
+                        <th>Geboorteplaats</th>
+                        <th>Overlijdensdatum</th>
+                        <th>Overlijdensplaats</th>
+                        <th>Scan</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -32,15 +40,74 @@
                         <td>{{.Voornaam}}</td>
                         <td>{{.Tussenvoegsel}}</td>
                         <td>{{.Achternaam}}</td>
+                        <td>{{.Geboortedatum.Format "02-01-2006"}}</td>
+                        <td>{{.Geboorteplaats}}</td>
+                        <td>{{.Overlijdensdatum.Format "02-01-2006"}}</td>
+                        <td>{{.Overlijdensplaats}}</td>
+                        <td>
+                            {{if .Scan}}
+                                <span class="badge bg-success">Yes</span>
+                            {{else}}
+                                <span class="badge bg-secondary">No</span>
+                            {{end}}
+                        </td>
                         <td>
                             <a href="/web/edit/{{.ID}}" class="btn btn-sm btn-primary">Edit</a>
+                            <button onclick="deleteBidprentje('{{.ID}}')" class="btn btn-sm btn-danger">Delete</button>
                         </td>
                     </tr>
                     {{end}}
                 </tbody>
             </table>
         </div>
+
+        {{if gt .data.TotalCount 0}}
+        <nav>
+            <ul class="pagination">
+                {{if gt .data.Page 1}}
+                <li class="page-item">
+                    <a class="page-link" href="/search?query={{.searchQuery}}&page={{subtract .data.Page 1}}">&laquo; Previous</a>
+                </li>
+                {{end}}
+
+                {{$totalPages := divide .data.TotalCount .data.PageSize}}
+                {{range $i := sequence $totalPages}}
+                <li class="page-item {{if eq (add $i 1) $.data.Page}}active{{end}}">
+                    <a class="page-link" href="/search?query={{$.searchQuery}}&page={{add $i 1}}">{{add $i 1}}</a>
+                </li>
+                {{end}}
+
+                {{if lt .data.Page $totalPages}}
+                <li class="page-item">
+                    <a class="page-link" href="/search?query={{.searchQuery}}&page={{add .data.Page 1}}">Next &raquo;</a>
+                </li>
+                {{end}}
+            </ul>
+        </nav>
+        {{end}}
         {{end}}
     </div>
+
+    <script>
+    async function deleteBidprentje(id) {
+        if (!confirm('Are you sure you want to delete this bidprentje?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/bidprentjes/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to delete bidprentje');
+            }
+        } catch (error) {
+            alert('Error deleting bidprentje');
+        }
+    }
+    </script>
 </body>
 </html> 

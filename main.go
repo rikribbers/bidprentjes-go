@@ -1,6 +1,7 @@
 package main
 
 import (
+	"html/template"
 	"log"
 
 	"bidprentjes-api/handlers"
@@ -10,6 +11,20 @@ import (
 
 func main() {
 	r := gin.Default()
+
+	// Add template functions
+	r.SetFuncMap(template.FuncMap{
+		"subtract": func(a, b int) int { return a - b },
+		"add":      func(a, b int) int { return a + b },
+		"divide":   func(a, b int) int { return (a + b - 1) / b }, // Ceiling division
+		"sequence": func(n int) []int {
+			seq := make([]int, n)
+			for i := range seq {
+				seq[i] = i
+			}
+			return seq
+		},
+	})
 
 	// Load HTML templates
 	log.Println("Loading templates from templates/*")
@@ -26,7 +41,7 @@ func main() {
 	r.DELETE("/api/bidprentjes/:id", handler.DeleteBidprentje)
 	r.GET("/api/bidprentjes", handler.ListBidprentjes)
 	r.POST("/api/search", handler.SearchBidprentjes)
-	r.POST("/api/upload", handler.WebUpload)
+	r.POST("/api/upload", handler.UploadCSV)
 
 	// Web Routes
 	r.GET("/web", handler.WebIndex)
