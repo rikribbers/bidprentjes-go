@@ -9,6 +9,7 @@ type Language struct {
 var SupportedLanguages = []Language{
 	{Code: "en", Name: "English", Flag: "gb"},
 	{Code: "nl", Name: "Nederlands", Flag: "nl"},
+	{Code: "de", Name: "Deutsch", Flag: "de"},
 }
 
 type Translations struct {
@@ -88,7 +89,7 @@ var translations = map[string]Translations{
 		Uploading:            "Uploading...",
 	},
 	"nl": {
-		Search:               "Zoek Bidprentjes",
+		Search:               "Bidprentjes zoeken",
 		SearchPlaceholder:    "Zoek op naam, plaats of jaar...",
 		SearchHelp:           "Zoek op naam, plaats of jaar (bijv. \"Jan Amsterdam 1900\"). Jaren worden gezocht in geboorte- en sterfdatum.",
 		Actions:              "Acties",
@@ -107,7 +108,7 @@ var translations = map[string]Translations{
 		DeathDate:            "Overlijdensdatum",
 		DeathPlace:           "Overlijdensplaats",
 		Scan:                 "Scan",
-		CreateNew:            "Nieuw Aanmaken",
+		CreateNew:            "Nieuw",
 		DeleteError:          "Fout bij verwijderen bidprentje",
 		DeleteSuccess:        "Bidprentje succesvol verwijderd",
 		Upload:               "CSV Uploaden",
@@ -124,11 +125,48 @@ var translations = map[string]Translations{
 		SelectFileError:      "Selecteer een bestand",
 		Uploading:            "Uploaden...",
 	},
+	"de": {
+		Search:               "Bidprentjes suchen",
+		SearchPlaceholder:    "Nach Name, Ort oder Jahr suchen...",
+		SearchHelp:           "Suche nach Name, Ort oder Jahr (z.B. \"Jan Amsterdam 1900\"). Jahre werden in Geburts- und Sterbedatum gesucht.",
+		Actions:              "Aktionen",
+		Edit:                 "Bearbeiten",
+		Delete:               "Löschen",
+		Create:               "Erstellen",
+		Cancel:               "Abbrechen",
+		Yes:                  "Ja",
+		No:                   "Nein",
+		DeleteConfirm:        "Möchten Sie dieses Bidprentje wirklich löschen?",
+		FirstName:            "Vorname",
+		Prefix:               "Präfix",
+		LastName:             "Nachname",
+		BirthDate:            "Geburtsdatum",
+		BirthPlace:           "Geburtsort",
+		DeathDate:            "Sterbedatum",
+		DeathPlace:           "Sterbeort",
+		Scan:                 "Scan",
+		CreateNew:            "Neu",
+		DeleteError:          "Fehler beim Löschen des Bidprentje",
+		DeleteSuccess:        "Bidprentje erfolgreich gelöscht",
+		Upload:               "CSV hochladen",
+		SelectCSVFile:        "CSV-Datei auswählen",
+		CSVFormat:            "CSV muss enthalten: ID, Vorname, Präfix, Nachname, Geburtsdatum, Geburtsort, Sterbedatum, Sterbeort, Scan",
+		UploadSuccess:        "Upload erfolgreich",
+		UploadError:          "Fehler beim Hochladen der Datei",
+		RecordsImported:      "Datensätze importiert",
+		CSVFormatDescription: "Die CSV-Datei muss folgende Spalten enthalten:",
+		Example:              "Beispiel",
+		CSVDateFormat:        "Daten müssen im JJJJ-MM-TT Format sein",
+		CSVScanFormat:        "Scan muss 'true' oder 'false' sein",
+		CSVHeader:            "Erste Zeile muss die Spaltenüberschriften enthalten",
+		SelectFileError:      "Bitte wählen Sie eine Datei aus",
+		Uploading:            "Wird hochgeladen...",
+	},
 }
 
 func GetTranslation(lang string) Translations {
 	if t, ok := translations[lang]; ok {
 		return t
 	}
-	return translations["en"] // fallback to English
+	return translations["nl"] // fallback to Dutch instead of English
 }

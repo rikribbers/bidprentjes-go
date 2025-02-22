@@ -16,8 +16,8 @@ import (
 func (h *Handler) WebIndex(c *gin.Context) {
 	log.Printf("WebIndex handler called")
 
-	// Get language preference
-	lang := c.DefaultQuery("lang", "en")
+	// Get language preference, default to Dutch
+	lang := c.DefaultQuery("lang", "nl")
 
 	// Get translations
 	t := translations.GetTranslation(lang)
@@ -64,8 +64,8 @@ func (h *Handler) WebIndex(c *gin.Context) {
 func (h *Handler) WebCreate(c *gin.Context) {
 	log.Printf("WebCreate handler called")
 
-	// Get language preference
-	lang := c.DefaultQuery("lang", "en")
+	// Get language preference, default to Dutch
+	lang := c.DefaultQuery("lang", "nl")
 
 	// Get translations
 	t := translations.GetTranslation(lang)
@@ -81,8 +81,8 @@ func (h *Handler) WebEdit(c *gin.Context) {
 	log.Printf("WebEdit handler called")
 	id := c.Param("id")
 
-	// Get language preference
-	lang := c.DefaultQuery("lang", "en")
+	// Get language preference, default to Dutch
+	lang := c.DefaultQuery("lang", "nl")
 
 	// Get translations
 	t := translations.GetTranslation(lang)
@@ -104,8 +104,8 @@ func (h *Handler) WebEdit(c *gin.Context) {
 func (h *Handler) WebSearch(c *gin.Context) {
 	log.Printf("WebSearch handler called")
 
-	// Get language preference
-	lang := c.DefaultQuery("lang", "en")
+	// Get language preference, default to Dutch
+	lang := c.DefaultQuery("lang", "nl")
 
 	// Get translations
 	t := translations.GetTranslation(lang)
@@ -116,13 +116,21 @@ func (h *Handler) WebSearch(c *gin.Context) {
 		params.PageSize = 25
 	}
 
+	// Ensure default values
+	if params.Page < 1 {
+		params.Page = 1
+	}
+	if params.PageSize < 1 {
+		params.PageSize = 25
+	}
+
 	// Get query from URL
 	params.Query = c.DefaultQuery("query", "")
 	log.Printf("Search query: %s, page: %d", params.Query, params.Page)
 
 	// Get search results
 	response := h.store.Search(params)
-	log.Printf("Found %d items matching search", len(response.Items))
+	log.Printf("Found %d items matching search", response.TotalCount)
 
 	c.HTML(http.StatusOK, "search.html", gin.H{
 		"data":        response,
@@ -136,8 +144,8 @@ func (h *Handler) WebSearch(c *gin.Context) {
 func (h *Handler) WebUpload(c *gin.Context) {
 	log.Printf("WebUpload handler called")
 
-	// Get language preference
-	lang := c.DefaultQuery("lang", "en")
+	// Get language preference, default to Dutch
+	lang := c.DefaultQuery("lang", "nl")
 
 	// Get translations
 	t := translations.GetTranslation(lang)
