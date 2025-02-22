@@ -8,12 +8,19 @@ import (
 	"time"
 
 	"bidprentjes-api/models"
+	"bidprentjes-api/translations"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (h *Handler) WebIndex(c *gin.Context) {
 	log.Printf("WebIndex handler called")
+
+	// Get language preference
+	lang := c.DefaultQuery("lang", "en")
+
+	// Get translations
+	t := translations.GetTranslation(lang)
 
 	// Get search and pagination params
 	var params models.SearchParams
@@ -22,7 +29,15 @@ func (h *Handler) WebIndex(c *gin.Context) {
 		params.PageSize = 25
 	}
 
-	// Get query from URL
+	// Ensure default values
+	if params.Page < 1 {
+		params.Page = 1
+	}
+	if params.PageSize < 1 {
+		params.PageSize = 25
+	}
+
+	// Get query from URL and ensure it's properly set in params
 	params.Query = c.DefaultQuery("query", "")
 	log.Printf("Search query: %s, page: %d", params.Query, params.Page)
 
@@ -30,27 +45,47 @@ func (h *Handler) WebIndex(c *gin.Context) {
 	if params.Query != "" {
 		// If there's a search query, use search
 		response = h.store.Search(params)
-		log.Printf("Found %d items matching search", len(response.Items))
+		log.Printf("Found %d items matching search", response.TotalCount)
 	} else {
 		// Otherwise show all items
 		response = h.store.List(params.Page, params.PageSize)
-		log.Printf("Found %d items in store", len(response.Items))
+		log.Printf("Found %d total items in store", response.TotalCount)
 	}
 
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"data":        response,
 		"searchQuery": params.Query,
+		"t":           t,
+		"lang":        lang,
+		"languages":   translations.SupportedLanguages,
 	})
 }
 
 func (h *Handler) WebCreate(c *gin.Context) {
 	log.Printf("WebCreate handler called")
-	c.HTML(http.StatusOK, "create.html", nil)
+
+	// Get language preference
+	lang := c.DefaultQuery("lang", "en")
+
+	// Get translations
+	t := translations.GetTranslation(lang)
+
+	c.HTML(http.StatusOK, "create.html", gin.H{
+		"t":         t,
+		"lang":      lang,
+		"languages": translations.SupportedLanguages,
+	})
 }
 
 func (h *Handler) WebEdit(c *gin.Context) {
 	log.Printf("WebEdit handler called")
 	id := c.Param("id")
+
+	// Get language preference
+	lang := c.DefaultQuery("lang", "en")
+
+	// Get translations
+	t := translations.GetTranslation(lang)
 
 	bidprentje, exists := h.store.Get(id)
 	if !exists {
@@ -60,11 +95,21 @@ func (h *Handler) WebEdit(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "edit.html", gin.H{
 		"bidprentje": bidprentje,
+		"t":          t,
+		"lang":       lang,
+		"languages":  translations.SupportedLanguages,
 	})
 }
 
 func (h *Handler) WebSearch(c *gin.Context) {
 	log.Printf("WebSearch handler called")
+
+	// Get language preference
+	lang := c.DefaultQuery("lang", "en")
+
+	// Get translations
+	t := translations.GetTranslation(lang)
+
 	var params models.SearchParams
 	if err := c.BindQuery(&params); err != nil {
 		params.Page = 1
@@ -82,12 +127,26 @@ func (h *Handler) WebSearch(c *gin.Context) {
 	c.HTML(http.StatusOK, "search.html", gin.H{
 		"data":        response,
 		"searchQuery": params.Query,
+		"t":           t,
+		"lang":        lang,
+		"languages":   translations.SupportedLanguages,
 	})
 }
 
 func (h *Handler) WebUpload(c *gin.Context) {
 	log.Printf("WebUpload handler called")
-	c.HTML(http.StatusOK, "upload.html", nil)
+
+	// Get language preference
+	lang := c.DefaultQuery("lang", "en")
+
+	// Get translations
+	t := translations.GetTranslation(lang)
+
+	c.HTML(http.StatusOK, "upload.html", gin.H{
+		"t":         t,
+		"lang":      lang,
+		"languages": translations.SupportedLanguages,
+	})
 }
 
 func (h *Handler) UploadCSV(c *gin.Context) {

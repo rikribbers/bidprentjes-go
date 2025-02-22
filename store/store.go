@@ -214,13 +214,16 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 	start := (params.Page - 1) * params.PageSize
 	end := start + params.PageSize
 
+	// Ensure valid pagination bounds
 	if start >= totalCount {
-		start = totalCount
+		start = 0
+		params.Page = 1
 	}
 	if end > totalCount {
 		end = totalCount
 	}
 
+	// Return paginated results
 	return &models.PaginatedResponse{
 		Items:      items[start:end],
 		TotalCount: totalCount,
