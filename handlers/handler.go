@@ -1,7 +1,11 @@
 package handlers
 
 import (
+	"encoding/csv"
+	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"bidprentjes-api/models"
@@ -11,7 +15,8 @@ import (
 )
 
 type Handler struct {
-	store *store.Store
+	store    *store.Store
+	readOnly bool
 }
 
 func NewHandler() *Handler {
@@ -20,7 +25,16 @@ func NewHandler() *Handler {
 	}
 }
 
+func (h *Handler) SetReadOnly(readonly bool) {
+	h.readOnly = readonly
+}
+
 func (h *Handler) CreateBidprentje(c *gin.Context) {
+	if h.readOnly {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		return
+	}
+
 	var bidprentje models.Bidprentje
 	if err := c.BindJSON(&bidprentje); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -47,6 +61,11 @@ func (h *Handler) CreateBidprentje(c *gin.Context) {
 }
 
 func (h *Handler) GetBidprentje(c *gin.Context) {
+	if h.readOnly {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		return
+	}
+
 	id := c.Param("id")
 	bidprentje, exists := h.store.Get(id)
 	if !exists {
@@ -58,6 +77,11 @@ func (h *Handler) GetBidprentje(c *gin.Context) {
 }
 
 func (h *Handler) UpdateBidprentje(c *gin.Context) {
+	if h.readOnly {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		return
+	}
+
 	id := c.Param("id")
 
 	var bidprentje models.Bidprentje
@@ -78,6 +102,11 @@ func (h *Handler) UpdateBidprentje(c *gin.Context) {
 }
 
 func (h *Handler) DeleteBidprentje(c *gin.Context) {
+	if h.readOnly {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		return
+	}
+
 	id := c.Param("id")
 	if err := h.store.Delete(id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -88,6 +117,11 @@ func (h *Handler) DeleteBidprentje(c *gin.Context) {
 }
 
 func (h *Handler) ListBidprentjes(c *gin.Context) {
+	if h.readOnly {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		return
+	}
+
 	var params models.SearchParams
 	if err := c.ShouldBindQuery(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -99,6 +133,11 @@ func (h *Handler) ListBidprentjes(c *gin.Context) {
 }
 
 func (h *Handler) SearchBidprentjes(c *gin.Context) {
+	if h.readOnly {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		return
+	}
+
 	var params models.SearchParams
 	if err := c.ShouldBindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -107,4 +146,75 @@ func (h *Handler) SearchBidprentjes(c *gin.Context) {
 
 	response := h.store.Search(params)
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
+	csvReader := csv.NewReader(reader)
+	// Skip header
+	if _, err := csvReader.Read(); err != nil {
+		return 0, fmt.Errorf("invalid CSV format: %v", err)
+	}
+
+	count := 0
+	for {
+		record, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			continue
+		}
+
+		if len(record) != 9 {
+			continue
+		}
+
+		geboortedatum, _ := time.Parse("2006-01-02", record[4])
+		overlijdensdatum, _ := time.Parse("2006-01-02", record[6])
+		scan := record[8] == "true"
+
+		bidprentje := &models.Bidprentje{
+			ID:                record[0],
+			Voornaam:          record[1],
+			Tussenvoegsel:     record[2],
+			Achternaam:        record[3],
+			Geboortedatum:     geboortedatum,
+			Geboorteplaats:    record[5],
+			Overlijdensdatum:  overlijdensdatum,
+			Overlijdensplaats: record[7],
+			Scan:              scan,
+			CreatedAt:         time.Now(),
+			UpdatedAt:         time.Now(),
+		}
+
+		if err := h.store.Create(bidprentje); err != nil {
+			continue
+		}
+		count++
+	}
+
+	return count, nil
+}
+
+func (h *Handler) WebHandler(c *gin.Context) {
+	if h.readOnly {
+		c.String(http.StatusNotFound, "Not Found")
+		return
+	}
+
+	// Call the appropriate handler based on the path
+	switch c.Request.URL.Path {
+	case "/web":
+		h.WebIndex(c)
+	case "/web/create":
+		h.WebCreate(c)
+	case "/upload":
+		h.WebUpload(c)
+	default:
+		if strings.HasPrefix(c.Request.URL.Path, "/web/edit/") {
+			h.WebEdit(c)
+		} else {
+			c.String(http.StatusNotFound, "Not Found")
+		}
+	}
 }

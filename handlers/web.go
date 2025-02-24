@@ -158,6 +158,11 @@ func (h *Handler) WebUpload(c *gin.Context) {
 }
 
 func (h *Handler) UploadCSV(c *gin.Context) {
+	if h.readOnly {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		return
+	}
+
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
