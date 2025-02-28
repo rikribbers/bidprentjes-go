@@ -88,9 +88,9 @@
             voornaam: document.getElementById('voornaam').value,
             tussenvoegsel: document.getElementById('tussenvoegsel').value,
             achternaam: document.getElementById('achternaam').value,
-            geboortedatum: new Date(document.getElementById('geboortedatum').value).toISOString(),
+            geboortedatum: document.getElementById('geboortedatum').value,
             geboorteplaats: document.getElementById('geboorteplaats').value,
-            overlijdensdatum: new Date(document.getElementById('overlijdensdatum').value).toISOString(),
+            overlijdensdatum: document.getElementById('overlijdensdatum').value,
             overlijdensplaats: document.getElementById('overlijdensplaats').value,
             scan: document.getElementById('scan').value === 'true'
         };

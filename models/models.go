@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Bidprentje struct {
 	ID                string    `json:"id"`
@@ -12,8 +15,73 @@ type Bidprentje struct {
 	Overlijdensdatum  time.Time `json:"overlijdensdatum"`
 	Overlijdensplaats string    `json:"overlijdensplaats"`
 	Scan              bool      `json:"scan"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+// MarshalJSON implements custom JSON marshaling for Bidprentje
+func (b Bidprentje) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		ID                string `json:"id"`
+		Voornaam          string `json:"voornaam"`
+		Tussenvoegsel     string `json:"tussenvoegsel"`
+		Achternaam        string `json:"achternaam"`
+		Geboortedatum     string `json:"geboortedatum"`
+		Geboorteplaats    string `json:"geboorteplaats"`
+		Overlijdensdatum  string `json:"overlijdensdatum"`
+		Overlijdensplaats string `json:"overlijdensplaats"`
+		Scan              bool   `json:"scan"`
+	}{
+		ID:                b.ID,
+		Voornaam:          b.Voornaam,
+		Tussenvoegsel:     b.Tussenvoegsel,
+		Achternaam:        b.Achternaam,
+		Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
+		Geboorteplaats:    b.Geboorteplaats,
+		Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
+		Overlijdensplaats: b.Overlijdensplaats,
+		Scan:              b.Scan,
+	})
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for Bidprentje
+func (b *Bidprentje) UnmarshalJSON(data []byte) error {
+	aux := &struct {
+		ID                string `json:"id"`
+		Voornaam          string `json:"voornaam"`
+		Tussenvoegsel     string `json:"tussenvoegsel"`
+		Achternaam        string `json:"achternaam"`
+		Geboortedatum     string `json:"geboortedatum"`
+		Geboorteplaats    string `json:"geboorteplaats"`
+		Overlijdensdatum  string `json:"overlijdensdatum"`
+		Overlijdensplaats string `json:"overlijdensplaats"`
+		Scan              bool   `json:"scan"`
+	}{}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	b.ID = aux.ID
+	b.Voornaam = aux.Voornaam
+	b.Tussenvoegsel = aux.Tussenvoegsel
+	b.Achternaam = aux.Achternaam
+	b.Geboorteplaats = aux.Geboorteplaats
+	b.Overlijdensplaats = aux.Overlijdensplaats
+	b.Scan = aux.Scan
+
+	var err error
+	if aux.Geboortedatum != "" {
+		b.Geboortedatum, err = time.Parse("2006-01-02", aux.Geboortedatum)
+		if err != nil {
+			return err
+		}
+	}
+	if aux.Overlijdensdatum != "" {
+		b.Overlijdensdatum, err = time.Parse("2006-01-02", aux.Overlijdensdatum)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type SearchParams struct {

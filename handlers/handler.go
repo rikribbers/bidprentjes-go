@@ -50,10 +50,6 @@ func (h *Handler) CreateBidprentje(c *gin.Context) {
 		return
 	}
 
-	// Set timestamps
-	bidprentje.CreatedAt = time.Now()
-	bidprentje.UpdatedAt = time.Now()
-
 	if err := h.store.Create(&bidprentje); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create bidprentje"})
 		return
@@ -93,7 +89,6 @@ func (h *Handler) UpdateBidprentje(c *gin.Context) {
 	}
 
 	bidprentje.ID = id
-	bidprentje.UpdatedAt = time.Now()
 
 	if err := h.store.Update(&bidprentje); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bidprentje"})
@@ -246,8 +241,6 @@ func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 						Overlijdensdatum:  overlijdensdatum,
 						Overlijdensplaats: record[7],
 						Scan:              scan,
-						CreatedAt:         time.Now(),
-						UpdatedAt:         time.Now(),
 					}
 
 					batch = append(batch, bidprentje)
