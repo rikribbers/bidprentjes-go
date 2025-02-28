@@ -1,26 +1,78 @@
 package store
 
 import (
+	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"bidprentjes-api/models"
+
+	"github.com/blevesearch/bleve/v2"
+	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
+	"github.com/blevesearch/bleve/v2/analysis/lang/nl"
+	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
+	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
+	"github.com/blevesearch/bleve/v2/search/query"
 )
 
 type Store struct {
-	data              map[string]*models.Bidprentje
-	trie              *Trie
-	mu                sync.RWMutex
-	searchFieldsCache map[string][]string // Cache for preprocessed search fields
+	data  map[string]*models.Bidprentje
+	index bleve.Index
+	mu    sync.RWMutex
 }
 
 func NewStore() *Store {
+	// Create a custom analyzer for Dutch names
+	indexMapping := bleve.NewIndexMapping()
+	err := indexMapping.AddCustomAnalyzer("bidprentje",
+		map[string]interface{}{
+			"type":      custom.Name,
+			"tokenizer": unicode.Name,
+			"token_filters": []string{
+				lowercase.Name,
+				nl.StopName,
+			},
+		})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create document mapping
+	docMapping := bleve.NewDocumentMapping()
+
+	// Add field mappings with appropriate analyzers
+	textFieldMapping := bleve.NewTextFieldMapping()
+	textFieldMapping.Analyzer = "bidprentje"
+
+	dateFieldMapping := bleve.NewDateTimeFieldMapping()
+	boolFieldMapping := bleve.NewBooleanFieldMapping()
+
+	// Configure field mappings
+	docMapping.AddFieldMappingsAt("ID", textFieldMapping)
+	docMapping.AddFieldMappingsAt("Voornaam", textFieldMapping)
+	docMapping.AddFieldMappingsAt("Tussenvoegsel", textFieldMapping)
+	docMapping.AddFieldMappingsAt("Achternaam", textFieldMapping)
+	docMapping.AddFieldMappingsAt("Geboorteplaats", textFieldMapping)
+	docMapping.AddFieldMappingsAt("Overlijdensplaats", textFieldMapping)
+	docMapping.AddFieldMappingsAt("Geboortedatum", dateFieldMapping)
+	docMapping.AddFieldMappingsAt("Overlijdensdatum", dateFieldMapping)
+	docMapping.AddFieldMappingsAt("Scan", boolFieldMapping)
+
+	indexMapping.DefaultMapping = docMapping
+
+	// Create in-memory index
+	index, err := bleve.NewMemOnly(indexMapping)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return &Store{
-		data:              make(map[string]*models.Bidprentje),
-		trie:              NewTrie(),
-		mu:                sync.RWMutex{},
-		searchFieldsCache: make(map[string][]string),
+		data:  make(map[string]*models.Bidprentje),
+		index: index,
+		mu:    sync.RWMutex{},
 	}
 }
 
@@ -29,12 +81,13 @@ func (s *Store) Create(b *models.Bidprentje) error {
 	defer s.mu.Unlock()
 
 	s.data[b.ID] = b
-	s.indexBidprentje(b)
-	s.searchFieldsCache[b.ID] = preprocessSearchFields(b)
-	return nil
+	return s.index.Index(b.ID, b)
 }
 
 func (s *Store) Get(id string) (*models.Bidprentje, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	b, exists := s.data[id]
 	return b, exists
 }
@@ -43,26 +96,16 @@ func (s *Store) Update(b *models.Bidprentje) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if old, exists := s.data[b.ID]; exists {
-		s.removeFromIndex(old)
-		delete(s.searchFieldsCache, b.ID)
-	}
 	s.data[b.ID] = b
-	s.indexBidprentje(b)
-	s.searchFieldsCache[b.ID] = preprocessSearchFields(b)
-	return nil
+	return s.index.Index(b.ID, b)
 }
 
 func (s *Store) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if b, exists := s.data[id]; exists {
-		s.removeFromIndex(b)
-		delete(s.data, id)
-		delete(s.searchFieldsCache, id)
-	}
-	return nil
+	delete(s.data, id)
+	return s.index.Delete(id)
 }
 
 func (s *Store) List(page, pageSize int) *models.PaginatedResponse {
@@ -99,33 +142,12 @@ func (s *Store) List(page, pageSize int) *models.PaginatedResponse {
 	}
 }
 
-func (s *Store) indexBidprentje(b *models.Bidprentje) {
-	// Index text fields
-	s.trie.Insert(strings.ToLower(b.Voornaam), b.ID)
-	s.trie.Insert(strings.ToLower(b.Tussenvoegsel), b.ID)
-	s.trie.Insert(strings.ToLower(b.Achternaam), b.ID)
-	s.trie.Insert(strings.ToLower(b.Geboorteplaats), b.ID)
-	s.trie.Insert(strings.ToLower(b.Overlijdensplaats), b.ID)
-
-	// Index dates
-	s.trie.Insert(b.Geboortedatum.Format("2006"), b.ID)
-	s.trie.Insert(b.Overlijdensdatum.Format("2006"), b.ID)
-}
-
-func (s *Store) removeFromIndex(b *models.Bidprentje) {
-	// Remove text fields
-	s.trie.Remove(strings.ToLower(b.Voornaam), b.ID)
-	s.trie.Remove(strings.ToLower(b.Tussenvoegsel), b.ID)
-	s.trie.Remove(strings.ToLower(b.Achternaam), b.ID)
-	s.trie.Remove(strings.ToLower(b.Geboorteplaats), b.ID)
-	s.trie.Remove(strings.ToLower(b.Overlijdensplaats), b.ID)
-
-	// Remove dates
-	s.trie.Remove(b.Geboortedatum.Format("2006"), b.ID)
-	s.trie.Remove(b.Overlijdensdatum.Format("2006"), b.ID)
-}
-
 func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
+	startTime := time.Now()
+	defer func() {
+		log.Printf("Search completed in %v", time.Since(startTime))
+	}()
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -138,189 +160,118 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 		}
 	}
 
-	type searchResult struct {
-		bidprentje *models.Bidprentje
-		score      int
+	// Create a multi-field query that searches across all text fields
+	queryStr := strings.ToLower(params.Query)
+
+	// Create individual field queries
+	var queries []query.Query
+
+	// Add exact match queries with higher boost
+	exactFields := []struct {
+		field string
+		boost float64
+	}{
+		{"ID", 10.0},
+		{"Voornaam", 5.0},
+		{"Achternaam", 5.0},
+		{"Tussenvoegsel", 3.0},
+		{"Geboorteplaats", 3.0},
+		{"Overlijdensplaats", 3.0},
 	}
 
-	query := strings.ToLower(params.Query)
-	queryWords := strings.Fields(query)
-	results := make([]searchResult, 0)
+	for _, f := range exactFields {
+		q := query.NewMatchQuery(queryStr)
+		q.SetField(f.field)
+		q.SetBoost(f.boost)
+		queries = append(queries, q)
+	}
 
-	// Search through all bidprentjes
-	for id, b := range s.data {
-		score := 0
-		searchFields := s.searchFieldsCache[id]
+	// Add fuzzy match queries with lower boost
+	fuzzyFields := []struct {
+		field string
+		boost float64
+	}{
+		{"Voornaam", 2.0},
+		{"Achternaam", 2.0},
+		{"Geboorteplaats", 1.0},
+		{"Overlijdensplaats", 1.0},
+	}
 
-		// First check for exact ID match
-		for _, word := range queryWords {
-			if strings.ToLower(b.ID) == word {
-				score += 100
-				continue
-			}
+	for _, f := range fuzzyFields {
+		q := query.NewFuzzyQuery(queryStr)
+		q.SetField(f.field)
+		q.SetBoost(f.boost)
+		q.SetFuzziness(1)
+		queries = append(queries, q)
+	}
+
+	// Combine all queries with OR
+	searchQuery := query.NewDisjunctionQuery(queries)
+
+	searchRequest := bleve.NewSearchRequest(searchQuery)
+	searchRequest.Size = params.PageSize
+	searchRequest.From = (params.Page - 1) * params.PageSize
+	searchRequest.SortBy([]string{"-_score"}) // Sort by score descending
+
+	searchStartTime := time.Now()
+	searchResults, err := s.index.Search(searchRequest)
+	log.Printf("Bleve search completed in %v", time.Since(searchStartTime))
+
+	if err != nil {
+		log.Printf("Search error: %v", err)
+		return &models.PaginatedResponse{
+			Items:      []models.Bidprentje{},
+			TotalCount: 0,
+			Page:       params.Page,
+			PageSize:   params.PageSize,
 		}
+	}
 
-		// Check each query word against each field
-		for _, word := range queryWords {
-			wordScore := 0
-			for _, field := range searchFields {
-				// Exact match (highest score)
-				if field == word {
-					wordScore = 100
-					break
-				}
-				// Contains match (high score)
-				if strings.Contains(field, word) {
-					wordScore = max(wordScore, 75)
-					continue
-				}
-				// Fuzzy match for longer words
-				if len(word) > 3 {
-					fieldWords := strings.Fields(field)
-					for _, fieldWord := range fieldWords {
-						distance := levenshteinDistance(word, fieldWord)
-						// Score based on similarity
-						if distance == 1 {
-							wordScore = max(wordScore, 50)
-						} else if distance == 2 {
-							wordScore = max(wordScore, 25)
-						}
-					}
-				}
-			}
-			score += wordScore
-		}
-
-		// Only include results that scored more than 25 points
-		if score > 25 {
-			results = append(results, searchResult{
-				bidprentje: b,
-				score:      score,
-			})
+	// Convert results to Bidprentje objects
+	items := make([]models.Bidprentje, 0, len(searchResults.Hits))
+	for _, hit := range searchResults.Hits {
+		if b, exists := s.data[hit.ID]; exists {
+			items = append(items, *b)
 		}
 	}
 
-	// Sort by score descending
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].score > results[j].score
-	})
-
-	// Convert to items slice
-	items := make([]models.Bidprentje, 0, len(results))
-	for _, result := range results {
-		items = append(items, *result.bidprentje)
-	}
-
-	// Calculate pagination
-	totalCount := len(items)
-	start := (params.Page - 1) * params.PageSize
-	end := start + params.PageSize
-
-	// Ensure valid pagination bounds
-	if start >= totalCount {
-		start = 0
-		params.Page = 1
-	}
-	if end > totalCount {
-		end = totalCount
-	}
-
-	// Return paginated results
 	return &models.PaginatedResponse{
-		Items:      items[start:end],
-		TotalCount: totalCount,
+		Items:      items,
+		TotalCount: int(searchResults.Total),
 		Page:       params.Page,
 		PageSize:   params.PageSize,
 	}
 }
 
-func preprocessSearchFields(b *models.Bidprentje) []string {
-	return []string{
-		strings.ToLower(b.ID),
-		strings.ToLower(b.Voornaam),
-		strings.ToLower(b.Tussenvoegsel),
-		strings.ToLower(b.Achternaam),
-		strings.ToLower(b.Geboorteplaats),
-		strings.ToLower(b.Overlijdensplaats),
-		b.Geboortedatum.Format("02-01-2006"),
-		b.Overlijdensdatum.Format("02-01-2006"),
-		b.Geboortedatum.Format("01-2006"),
-		b.Overlijdensdatum.Format("01-2006"),
-		b.Geboortedatum.Format("2006"),
-		b.Overlijdensdatum.Format("2006"),
-	}
-}
-
-// levenshteinDistance calculates the minimum number of single-character edits required to change one string into another
-func levenshteinDistance(s1, s2 string) int {
-	s1 = strings.ToLower(s1)
-	s2 = strings.ToLower(s2)
-
-	// Early exit for identical strings
-	if s1 == s2 {
-		return 0
+// BatchCreate adds multiple bidprentjes in a single batch operation
+func (s *Store) BatchCreate(bidprentjes []*models.Bidprentje) error {
+	if len(bidprentjes) == 0 {
+		return nil
 	}
 
-	// Early exit if length difference is too large
-	if abs(len(s1)-len(s2)) > 2 {
-		return 3 // Return value larger than our max acceptable distance
+	// Pre-allocate map space
+	s.mu.Lock()
+	for _, b := range bidprentjes {
+		s.data[b.ID] = b
 	}
+	s.mu.Unlock()
 
-	// Use smaller matrix
-	if len(s1) > len(s2) {
-		s1, s2 = s2, s1
-	}
-
-	// Use two rows instead of full matrix
-	previous := make([]int, len(s2)+1)
-	current := make([]int, len(s2)+1)
-
-	// Initialize first row
-	for j := 0; j <= len(s2); j++ {
-		previous[j] = j
-	}
-
-	// Fill in the rest of the matrix
-	for i := 1; i <= len(s1); i++ {
-		current[0] = i
-		for j := 1; j <= len(s2); j++ {
-			if s1[i-1] == s2[j-1] {
-				current[j] = previous[j-1]
-			} else {
-				current[j] = 1 + min(
-					previous[j-1], // substitution
-					previous[j],   // deletion
-					current[j-1],  // insertion
-				)
-			}
-		}
-		// Swap slices
-		previous, current = current, previous
-	}
-
-	return previous[len(s2)]
-}
-
-func min(numbers ...int) int {
-	result := numbers[0]
-	for _, num := range numbers[1:] {
-		if num < result {
-			result = num
+	// Create and fill batch
+	batch := s.index.NewBatch()
+	for _, b := range bidprentjes {
+		if err := batch.Index(b.ID, b); err != nil {
+			return fmt.Errorf("error adding to batch: %v", err)
 		}
 	}
-	return result
-}
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
+	// Execute batch with a write lock
+	s.mu.Lock()
+	err := s.index.Batch(batch)
+	s.mu.Unlock()
 
-func abs(x int) int {
-	if x < 0 {
-		return -x
+	if err != nil {
+		return fmt.Errorf("error executing batch: %v", err)
 	}
-	return x
+
+	return nil
 }

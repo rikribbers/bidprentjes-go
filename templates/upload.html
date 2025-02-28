@@ -82,33 +82,55 @@
         const progress = document.getElementById('progress');
         const progressBar = progress.querySelector('.progress-bar');
         const status = document.getElementById('status');
+        const submitButton = this.querySelector('button[type="submit"]');
         
+        // Disable submit button and show progress
+        submitButton.disabled = true;
         progress.classList.remove('d-none');
         progressBar.style.width = '0%';
+        progressBar.classList.remove('bg-danger');
         status.textContent = '{{.t.Uploading}}';
         
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
 
         try {
+            console.log('Starting upload...');
             const response = await fetch('/upload', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: {
+                    'Accept': 'application/json',
+                },
             });
 
-            const result = await response.json();
+            console.log('Response received:', response.status);
+            let result;
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                result = await response.json();
+            } else {
+                throw new Error('Invalid response format from server');
+            }
+
             if (response.ok) {
+                console.log('Upload successful:', result);
                 progressBar.style.width = '100%';
+                progressBar.classList.add('bg-success');
                 status.textContent = `{{.t.UploadSuccess}}: ${result.count} {{.t.RecordsImported}}`;
                 setTimeout(() => {
                     window.location.href = '/web?lang={{.lang}}';
                 }, 2000);
             } else {
+                console.error('Upload failed:', result);
                 throw new Error(result.error || '{{.t.UploadError}}');
             }
         } catch (error) {
+            console.error('Upload error:', error);
+            progressBar.style.width = '100%';
             progressBar.classList.add('bg-danger');
-            status.textContent = error.message;
+            status.textContent = error.message || '{{.t.UploadError}}';
+            submitButton.disabled = false;
         }
     });
 

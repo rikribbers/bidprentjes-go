@@ -1,11 +1,8 @@
 package handlers
 
 import (
-	"encoding/csv"
-	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"bidprentjes-api/models"
 	"bidprentjes-api/translations"
@@ -163,57 +160,33 @@ func (h *Handler) UploadCSV(c *gin.Context) {
 		return
 	}
 
-	file, _, err := c.Request.FormFile("file")
+	log.Printf("UploadCSV handler called")
+
+	// Set headers to prevent caching
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
+
+	file, fileHeader, err := c.Request.FormFile("file")
 	if err != nil {
+		log.Printf("Error getting form file: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
 		return
 	}
 	defer file.Close()
 
-	reader := csv.NewReader(file)
-	// Skip header
-	if _, err := reader.Read(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid CSV format"})
+	log.Printf("Processing file: %s, size: %d bytes", fileHeader.Filename, fileHeader.Size)
+
+	count, err := h.ProcessCSVUpload(file)
+	if err != nil {
+		log.Printf("Error processing CSV: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	count := 0
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			continue
-		}
-
-		if len(record) != 9 {
-			continue
-		}
-
-		geboortedatum, _ := time.Parse("2006-01-02", record[4])
-		overlijdensdatum, _ := time.Parse("2006-01-02", record[6])
-		scan := record[8] == "true"
-
-		bidprentje := &models.Bidprentje{
-			ID:                record[0],
-			Voornaam:          record[1],
-			Tussenvoegsel:     record[2],
-			Achternaam:        record[3],
-			Geboortedatum:     geboortedatum,
-			Geboorteplaats:    record[5],
-			Overlijdensdatum:  overlijdensdatum,
-			Overlijdensplaats: record[7],
-			Scan:              scan,
-			CreatedAt:         time.Now(),
-			UpdatedAt:         time.Now(),
-		}
-
-		if err := h.store.Create(bidprentje); err != nil {
-			continue
-		}
-		count++
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Upload complete", "count": count})
+	log.Printf("Upload complete, sending response with count: %d", count)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Upload complete",
+		"count":   count,
+	})
 }
