@@ -185,11 +185,6 @@ func (s *Store) createNewIndex() error {
 	textFieldMapping.Index = true
 	textFieldMapping.Analyzer = "bidprentje"
 
-	// Date field mapping for birth and death dates
-	dateFieldMapping := bleve.NewDateTimeFieldMapping()
-	dateFieldMapping.Store = true
-	dateFieldMapping.Index = true
-
 	boolFieldMapping := bleve.NewBooleanFieldMapping()
 	boolFieldMapping.Store = true
 	boolFieldMapping.Index = true
@@ -202,8 +197,8 @@ func (s *Store) createNewIndex() error {
 	docMapping.AddFieldMappingsAt("achternaam", textFieldMapping)
 	docMapping.AddFieldMappingsAt("geboorteplaats", textFieldMapping)
 	docMapping.AddFieldMappingsAt("overlijdensplaats", textFieldMapping)
-	docMapping.AddFieldMappingsAt("geboortedatum", dateFieldMapping)
-	docMapping.AddFieldMappingsAt("overlijdensdatum", dateFieldMapping)
+	docMapping.AddFieldMappingsAt("geboortedatum", textFieldMapping)
+	docMapping.AddFieldMappingsAt("overlijdensdatum", textFieldMapping)
 	docMapping.AddFieldMappingsAt("scan", boolFieldMapping)
 
 	indexMapping.DefaultMapping = docMapping
@@ -288,36 +283,22 @@ func (s *Store) rebuildDataFromIndex() error {
 	// Rebuild data from search results
 	for _, hit := range results.Hits {
 		b := &models.Bidprentje{
-			ID: hit.ID,
+			ID:                hit.ID,
+			Voornaam:          hit.Fields["voornaam"].(string),
+			Tussenvoegsel:     hit.Fields["tussenvoegsel"].(string),
+			Achternaam:        hit.Fields["achternaam"].(string),
+			Geboorteplaats:    hit.Fields["geboorteplaats"].(string),
+			Overlijdensplaats: hit.Fields["overlijdensplaats"].(string),
+			Scan:              hit.Fields["scan"].(bool),
 		}
 
-		// Extract fields from the stored fields in the hit
-		if voornaam, ok := hit.Fields["voornaam"].(string); ok {
-			b.Voornaam = voornaam
-		}
-		if tussenvoegsel, ok := hit.Fields["tussenvoegsel"].(string); ok {
-			b.Tussenvoegsel = tussenvoegsel
-		}
-		if achternaam, ok := hit.Fields["achternaam"].(string); ok {
-			b.Achternaam = achternaam
-		}
-		if geboorteplaats, ok := hit.Fields["geboorteplaats"].(string); ok {
-			b.Geboorteplaats = geboorteplaats
-		}
-		if overlijdensplaats, ok := hit.Fields["overlijdensplaats"].(string); ok {
-			b.Overlijdensplaats = overlijdensplaats
-		}
-		if scan, ok := hit.Fields["scan"].(bool); ok {
-			b.Scan = scan
-		}
-
-		// Parse dates from stored string format
-		if geboortedatum, ok := hit.Fields["geboortedatum"].(string); ok {
+		// Parse dates
+		if geboortedatum, ok := hit.Fields["geboortedatum"].(string); ok && geboortedatum != "" {
 			if parsed, err := time.Parse("2006-01-02", geboortedatum); err == nil {
 				b.Geboortedatum = parsed
 			}
 		}
-		if overlijdensdatum, ok := hit.Fields["overlijdensdatum"].(string); ok {
+		if overlijdensdatum, ok := hit.Fields["overlijdensdatum"].(string); ok && overlijdensdatum != "" {
 			if parsed, err := time.Parse("2006-01-02", overlijdensdatum); err == nil {
 				b.Overlijdensdatum = parsed
 			}
@@ -735,6 +716,10 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 
 // BatchCreate adds multiple bidprentjes in a single batch operation
 func (s *Store) BatchCreate(bidprentjes []*models.Bidprentje) error {
+	if len(bidprentjes) == 0 {
+		return nil
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -742,7 +727,6 @@ func (s *Store) BatchCreate(bidprentjes []*models.Bidprentje) error {
 	for _, b := range bidprentjes {
 		s.data[b.ID] = b
 
-		// Create Bleve document
 		doc := BleveDocument{
 			ID:                b.ID,
 			Voornaam:          b.Voornaam,
