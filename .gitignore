@@ -22,6 +22,12 @@ go.work
 # Generated CSV files
 *.csv
 
+# Excel files
+*.xls
+*.xlsx
+*.xlsm
+*.xlsb
+
 # IDE specific files
 .idea/
 .vscode/
