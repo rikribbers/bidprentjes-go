@@ -9,22 +9,28 @@ import (
 )
 
 type Store struct {
-	data map[string]*models.Bidprentje
-	trie *Trie
-	mu   sync.RWMutex
+	data              map[string]*models.Bidprentje
+	trie              *Trie
+	mu                sync.RWMutex
+	searchFieldsCache map[string][]string // Cache for preprocessed search fields
 }
 
 func NewStore() *Store {
 	return &Store{
-		data: make(map[string]*models.Bidprentje),
-		trie: NewTrie(),
-		mu:   sync.RWMutex{},
+		data:              make(map[string]*models.Bidprentje),
+		trie:              NewTrie(),
+		mu:                sync.RWMutex{},
+		searchFieldsCache: make(map[string][]string),
 	}
 }
 
 func (s *Store) Create(b *models.Bidprentje) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.data[b.ID] = b
 	s.indexBidprentje(b)
+	s.searchFieldsCache[b.ID] = preprocessSearchFields(b)
 	return nil
 }
 
@@ -34,18 +40,27 @@ func (s *Store) Get(id string) (*models.Bidprentje, bool) {
 }
 
 func (s *Store) Update(b *models.Bidprentje) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if old, exists := s.data[b.ID]; exists {
 		s.removeFromIndex(old)
+		delete(s.searchFieldsCache, b.ID)
 	}
 	s.data[b.ID] = b
 	s.indexBidprentje(b)
+	s.searchFieldsCache[b.ID] = preprocessSearchFields(b)
 	return nil
 }
 
 func (s *Store) Delete(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if b, exists := s.data[id]; exists {
 		s.removeFromIndex(b)
 		delete(s.data, id)
+		delete(s.searchFieldsCache, id)
 	}
 	return nil
 }
@@ -133,22 +148,9 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 	results := make([]searchResult, 0)
 
 	// Search through all bidprentjes
-	for _, b := range s.data {
+	for id, b := range s.data {
 		score := 0
-		searchFields := []string{
-			strings.ToLower(b.ID),
-			strings.ToLower(b.Voornaam),
-			strings.ToLower(b.Tussenvoegsel),
-			strings.ToLower(b.Achternaam),
-			strings.ToLower(b.Geboorteplaats),
-			strings.ToLower(b.Overlijdensplaats),
-			b.Geboortedatum.Format("02-01-2006"),
-			b.Overlijdensdatum.Format("02-01-2006"),
-			b.Geboortedatum.Format("01-2006"),
-			b.Overlijdensdatum.Format("01-2006"),
-			b.Geboortedatum.Format("2006"),
-			b.Overlijdensdatum.Format("2006"),
-		}
+		searchFields := s.searchFieldsCache[id]
 
 		// First check for exact ID match
 		for _, word := range queryWords {
@@ -232,48 +234,71 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 	}
 }
 
+func preprocessSearchFields(b *models.Bidprentje) []string {
+	return []string{
+		strings.ToLower(b.ID),
+		strings.ToLower(b.Voornaam),
+		strings.ToLower(b.Tussenvoegsel),
+		strings.ToLower(b.Achternaam),
+		strings.ToLower(b.Geboorteplaats),
+		strings.ToLower(b.Overlijdensplaats),
+		b.Geboortedatum.Format("02-01-2006"),
+		b.Overlijdensdatum.Format("02-01-2006"),
+		b.Geboortedatum.Format("01-2006"),
+		b.Overlijdensdatum.Format("01-2006"),
+		b.Geboortedatum.Format("2006"),
+		b.Overlijdensdatum.Format("2006"),
+	}
+}
+
 // levenshteinDistance calculates the minimum number of single-character edits required to change one string into another
 func levenshteinDistance(s1, s2 string) int {
 	s1 = strings.ToLower(s1)
 	s2 = strings.ToLower(s2)
 
-	if len(s1) == 0 {
-		return len(s2)
-	}
-	if len(s2) == 0 {
-		return len(s1)
+	// Early exit for identical strings
+	if s1 == s2 {
+		return 0
 	}
 
-	// Create matrix
-	matrix := make([][]int, len(s1)+1)
-	for i := range matrix {
-		matrix[i] = make([]int, len(s2)+1)
+	// Early exit if length difference is too large
+	if abs(len(s1)-len(s2)) > 2 {
+		return 3 // Return value larger than our max acceptable distance
 	}
 
-	// Initialize first row and column
-	for i := 0; i <= len(s1); i++ {
-		matrix[i][0] = i
+	// Use smaller matrix
+	if len(s1) > len(s2) {
+		s1, s2 = s2, s1
 	}
+
+	// Use two rows instead of full matrix
+	previous := make([]int, len(s2)+1)
+	current := make([]int, len(s2)+1)
+
+	// Initialize first row
 	for j := 0; j <= len(s2); j++ {
-		matrix[0][j] = j
+		previous[j] = j
 	}
 
 	// Fill in the rest of the matrix
 	for i := 1; i <= len(s1); i++ {
+		current[0] = i
 		for j := 1; j <= len(s2); j++ {
 			if s1[i-1] == s2[j-1] {
-				matrix[i][j] = matrix[i-1][j-1]
+				current[j] = previous[j-1]
 			} else {
-				matrix[i][j] = min(
-					matrix[i-1][j]+1,   // deletion
-					matrix[i][j-1]+1,   // insertion
-					matrix[i-1][j-1]+1, // substitution
+				current[j] = 1 + min(
+					previous[j-1], // substitution
+					previous[j],   // deletion
+					current[j-1],  // insertion
 				)
 			}
 		}
+		// Swap slices
+		previous, current = current, previous
 	}
 
-	return matrix[len(s1)][len(s2)]
+	return previous[len(s2)]
 }
 
 func min(numbers ...int) int {
@@ -291,4 +316,11 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
