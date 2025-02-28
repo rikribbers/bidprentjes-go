@@ -69,47 +69,70 @@ func (t *Trie) Remove(word string, id string) {
 	removeFromNode(t.root, []rune(word), 0)
 }
 
+func (t *Trie) findExact(word string) *TrieNode {
+	node := t.root
+	for _, ch := range word {
+		if child, exists := node.children[ch]; exists {
+			node = child
+		} else {
+			return nil
+		}
+	}
+	return node
+}
+
 func (t *Trie) Search(query string, maxDistance int) map[string]bool {
 	results := make(map[string]bool)
 	if query == "" {
 		return results
 	}
 
+	// Early exit for exact matches
+	if node := t.findExact(query); node != nil {
+		for id := range node.ids {
+			results[id] = true
+		}
+		if len(results) > 0 {
+			return results
+		}
+	}
+
+	// Continue with fuzzy search only if no exact matches found
 	query = strings.ToLower(query)
+	visited := make(map[string]bool)
+
 	var search func(node *TrieNode, prefix string, distance int)
 	search = func(node *TrieNode, prefix string, distance int) {
 		if distance > maxDistance {
 			return
 		}
 
-		// Add IDs if we're within distance
+		key := prefix + string(rune(distance))
+		if visited[key] {
+			return
+		}
+		visited[key] = true
+
 		if len(prefix) >= len(query) {
 			if distance <= maxDistance {
 				for id := range node.ids {
 					results[id] = true
 				}
 			}
+			return
 		}
 
-		// Continue searching
-		if len(prefix) < len(query) {
-			ch := rune(query[len(prefix)])
-			// Match
-			if child, exists := node.children[ch]; exists {
-				search(child, prefix+string(ch), distance)
-			}
-			// Substitution
+		ch := rune(query[len(prefix)])
+		if child, exists := node.children[ch]; exists {
+			search(child, prefix+string(ch), distance)
+		}
+
+		// Only try fuzzy matches if we haven't found enough results
+		if len(results) < 100 {
 			for r, child := range node.children {
 				if r != ch {
 					search(child, prefix+string(r), distance+1)
 				}
-			}
-			// Deletion
-			search(node, prefix+string(ch), distance+1)
-		} else {
-			// Insertion
-			for r, child := range node.children {
-				search(child, prefix+string(r), distance+1)
 			}
 		}
 	}

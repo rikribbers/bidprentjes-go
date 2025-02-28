@@ -69,21 +69,14 @@ func main() {
 	r.LoadHTMLGlob("templates/*.html")
 	log.Println("Templates loaded successfully")
 
-	// API Routes (these will be protected by readOnly check in handlers)
-	r.POST("/api/bidprentjes", handler.CreateBidprentje)
-	r.GET("/api/bidprentjes/:id", handler.GetBidprentje)
-	r.PUT("/api/bidprentjes/:id", handler.UpdateBidprentje)
-	r.DELETE("/api/bidprentjes/:id", handler.DeleteBidprentje)
-	r.GET("/api/bidprentjes", handler.ListBidprentjes)
-	r.POST("/api/search", handler.SearchBidprentjes)
-	r.POST("/api/upload", handler.UploadCSV)
-
 	// Web Routes
-	r.GET("/web", handler.WebHandler)
-	r.GET("/web/create", handler.WebHandler)
-	r.GET("/web/edit/:id", handler.WebHandler)
-	r.GET("/search", handler.WebSearch) // This one remains accessible
-	r.GET("/upload", handler.WebHandler)
+	r.GET("/", handler.WebIndex) // Add root route
+	r.GET("/web", handler.WebIndex)
+	r.GET("/web/create", handler.WebCreate)
+	r.GET("/web/edit/:id", handler.WebEdit)
+	r.GET("/search", handler.WebSearch)
+	r.GET("/upload", handler.WebUpload)
+	r.POST("/upload", handler.UploadCSV) // Make sure this matches the form's endpoint
 
 	log.Fatal(r.Run(":8080"))
 }

@@ -148,6 +148,7 @@ func (h *Handler) SearchBidprentjes(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// ProcessCSVUpload handles the processing of uploaded CSV files
 func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 	csvReader := csv.NewReader(reader)
 	// Skip header
@@ -169,17 +170,17 @@ func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 			continue
 		}
 
-		geboortedatum, _ := time.Parse("2006-01-02", record[4])
-		overlijdensdatum, _ := time.Parse("2006-01-02", record[6])
+		geboortedatum, _ := time.Parse("2006-01-02", record[1])
+		overlijdensdatum, _ := time.Parse("2006-01-02", record[2])
 		scan := record[8] == "true"
 
 		bidprentje := &models.Bidprentje{
 			ID:                record[0],
-			Voornaam:          record[1],
-			Tussenvoegsel:     record[2],
+			Voornaam:          record[6],
+			Tussenvoegsel:     record[5],
 			Achternaam:        record[3],
 			Geboortedatum:     geboortedatum,
-			Geboorteplaats:    record[5],
+			Geboorteplaats:    record[4],
 			Overlijdensdatum:  overlijdensdatum,
 			Overlijdensplaats: record[7],
 			Scan:              scan,
