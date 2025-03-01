@@ -291,7 +291,10 @@ func (h *Handler) UploadCSV(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Successfully processed %d records", count)})
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("Successfully processed %d records", count),
+		"count":   count,
+	})
 }
 
 func (h *Handler) WebSearch(c *gin.Context) {

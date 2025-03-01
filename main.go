@@ -88,6 +88,7 @@ func main() {
 	// Keep only search and upload web endpoints
 	r.GET("/search", handler.WebSearch)
 	r.GET("/upload", handler.WebUpload)
+	r.POST("/upload", handler.UploadCSV)
 
 	log.Fatal(r.Run(":8080"))
 }
