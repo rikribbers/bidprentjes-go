@@ -903,6 +903,8 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 			batchPool.Put(result.batch)
 			nextChunkToProcess++
 		}
+		// Swap slices
+		previous, current = current, previous
 	}
 
 	if lastError != nil {
@@ -911,4 +913,11 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 
 	log.Printf("Successfully processed all %d records in %v", totalRecords, time.Since(startTime))
 	return totalRecords, nil
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
