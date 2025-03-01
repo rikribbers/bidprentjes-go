@@ -6,19 +6,20 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"bidprentjes-api/models"
 	"bidprentjes-api/store"
+	"bidprentjes-api/translations"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	store    *store.Store
-	readOnly bool
+	store *store.Store
 }
 
 func NewHandler() *Handler {
@@ -27,16 +28,7 @@ func NewHandler() *Handler {
 	}
 }
 
-func (h *Handler) SetReadOnly(readonly bool) {
-	h.readOnly = readonly
-}
-
 func (h *Handler) CreateBidprentje(c *gin.Context) {
-	if h.readOnly {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		return
-	}
-
 	var bidprentje models.Bidprentje
 	if err := c.BindJSON(&bidprentje); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -59,11 +51,6 @@ func (h *Handler) CreateBidprentje(c *gin.Context) {
 }
 
 func (h *Handler) GetBidprentje(c *gin.Context) {
-	if h.readOnly {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		return
-	}
-
 	id := c.Param("id")
 	bidprentje, exists := h.store.Get(id)
 	if !exists {
@@ -75,11 +62,6 @@ func (h *Handler) GetBidprentje(c *gin.Context) {
 }
 
 func (h *Handler) UpdateBidprentje(c *gin.Context) {
-	if h.readOnly {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		return
-	}
-
 	id := c.Param("id")
 
 	var bidprentje models.Bidprentje
@@ -99,11 +81,6 @@ func (h *Handler) UpdateBidprentje(c *gin.Context) {
 }
 
 func (h *Handler) DeleteBidprentje(c *gin.Context) {
-	if h.readOnly {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		return
-	}
-
 	id := c.Param("id")
 	if err := h.store.Delete(id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -114,11 +91,6 @@ func (h *Handler) DeleteBidprentje(c *gin.Context) {
 }
 
 func (h *Handler) ListBidprentjes(c *gin.Context) {
-	if h.readOnly {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		return
-	}
-
 	var params models.SearchParams
 	if err := c.ShouldBindQuery(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -130,11 +102,6 @@ func (h *Handler) ListBidprentjes(c *gin.Context) {
 }
 
 func (h *Handler) SearchBidprentjes(c *gin.Context) {
-	if h.readOnly {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
-		return
-	}
-
 	var params models.SearchParams
 	if err := c.ShouldBindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -302,25 +269,79 @@ func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 	return totalRecords, nil
 }
 
-func (h *Handler) WebHandler(c *gin.Context) {
-	if h.readOnly {
-		c.String(http.StatusNotFound, "Not Found")
+func (h *Handler) UploadCSV(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
 		return
 	}
 
-	// Call the appropriate handler based on the path
-	switch c.Request.URL.Path {
-	case "/web":
-		h.WebIndex(c)
-	case "/web/create":
-		h.WebCreate(c)
-	case "/upload":
-		h.WebUpload(c)
-	default:
-		if strings.HasPrefix(c.Request.URL.Path, "/web/edit/") {
-			h.WebEdit(c)
-		} else {
-			c.String(http.StatusNotFound, "Not Found")
-		}
+	// Open the file
+	src, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open file"})
+		return
 	}
+	defer src.Close()
+
+	// Process the CSV file
+	count, err := h.ProcessCSVUpload(src)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to process CSV: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Successfully processed %d records", count)})
+}
+
+func (h *Handler) WebSearch(c *gin.Context) {
+	query := c.Query("query")
+	lang := c.DefaultQuery("lang", "nl") // Default to Dutch
+
+	// Parse page and pageSize from query parameters
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
+	if err != nil || pageSize < 1 {
+		pageSize = 10
+	}
+
+	var response *models.PaginatedResponse
+	if query != "" {
+		response = h.store.Search(models.SearchParams{
+			Query:    query,
+			Page:     page,
+			PageSize: pageSize,
+		})
+	} else {
+		response = h.store.List(page, pageSize)
+	}
+
+	t := translations.GetTranslation(lang)
+	languages := translations.SupportedLanguages
+
+	c.HTML(http.StatusOK, "search.html", gin.H{
+		"data":        response,
+		"searchQuery": query,
+		"lang":        lang,
+		"languages":   languages,
+		"t":           t,
+		"title":       t.Search,
+		"description": t.SearchHelp,
+	})
+}
+
+func (h *Handler) WebUpload(c *gin.Context) {
+	lang := c.DefaultQuery("lang", "nl") // Default to Dutch
+	t := translations.GetTranslation(lang)
+	languages := translations.SupportedLanguages
+
+	c.HTML(http.StatusOK, "upload.html", gin.H{
+		"lang":      lang,
+		"languages": languages,
+		"t":         t,
+		"title":     t.Upload,
+	})
 }

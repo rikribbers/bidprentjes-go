@@ -41,8 +41,6 @@ func main() {
 					log.Printf("Warning: Failed to process CSV file: %v", err)
 				} else {
 					log.Printf("Successfully loaded %d records from GCP storage", count)
-					// Disable upload and web interfaces
-					handler.SetReadOnly(true)
 				}
 			}
 		}
@@ -52,9 +50,18 @@ func main() {
 
 	// Add template functions
 	r.SetFuncMap(template.FuncMap{
-		"subtract": func(a, b int) int { return a - b },
-		"add":      func(a, b int) int { return a + b },
-		"divide":   func(a, b int) int { return (a + b - 1) / b }, // Ceiling division
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"subtract": func(a, b int) int {
+			return a - b
+		},
+		"divide": func(a, b int) int {
+			if b == 0 {
+				return 0
+			}
+			return a / b
+		},
 		"sequence": func(n int) []int {
 			seq := make([]int, n)
 			for i := range seq {
@@ -69,14 +76,18 @@ func main() {
 	r.LoadHTMLGlob("templates/*.html")
 	log.Println("Templates loaded successfully")
 
-	// Web Routes
-	r.GET("/", handler.WebIndex) // Add root route
-	r.GET("/web", handler.WebIndex)
-	r.GET("/web/create", handler.WebCreate)
-	r.GET("/web/edit/:id", handler.WebEdit)
+	// API routes
+	r.GET("/api/bidprentjes", handler.ListBidprentjes)
+	r.GET("/api/bidprentjes/:id", handler.GetBidprentje)
+	r.POST("/api/bidprentjes", handler.CreateBidprentje)
+	r.PUT("/api/bidprentjes/:id", handler.UpdateBidprentje)
+	r.DELETE("/api/bidprentjes/:id", handler.DeleteBidprentje)
+	r.POST("/api/bidprentjes/search", handler.SearchBidprentjes)
+	r.POST("/api/bidprentjes/upload", handler.UploadCSV)
+
+	// Keep only search and upload web endpoints
 	r.GET("/search", handler.WebSearch)
 	r.GET("/upload", handler.WebUpload)
-	r.POST("/upload", handler.UploadCSV) // Make sure this matches the form's endpoint
 
 	log.Fatal(r.Run(":8080"))
 }
