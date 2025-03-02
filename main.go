@@ -30,8 +30,8 @@ func main() {
 	// Initialize handlers with store
 	handler := handlers.NewHandler(store)
 
-	// If we have a bucket name, check for CSV file
-	if bucketName != "" {
+	// If we have a bucket name and no valid index was restored, try processing CSV
+	if bucketName != "" && !store.HasValidIndex() {
 		storageClient, err := cloud.NewStorageClient(ctx, bucketName)
 		if err != nil {
 			log.Printf("Warning: Failed to initialize GCP storage client: %v", err)
@@ -96,15 +96,6 @@ func main() {
 	log.Println("Loading templates from templates/*")
 	r.LoadHTMLGlob("templates/*.html")
 	log.Println("Templates loaded successfully")
-
-	// API routes
-	r.GET("/api/bidprentjes", handler.ListBidprentjes)
-	r.GET("/api/bidprentjes/:id", handler.GetBidprentje)
-	r.POST("/api/bidprentjes", handler.CreateBidprentje)
-	r.PUT("/api/bidprentjes/:id", handler.UpdateBidprentje)
-	r.DELETE("/api/bidprentjes/:id", handler.DeleteBidprentje)
-	r.POST("/api/bidprentjes/search", handler.SearchBidprentjes)
-	r.POST("/api/bidprentjes/upload", handler.UploadCSV)
 
 	// Keep only search and upload web endpoints
 	r.GET("/search", handler.WebSearch)
