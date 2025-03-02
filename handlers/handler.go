@@ -120,6 +120,11 @@ func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 	}()
 
 	csvReader := csv.NewReader(reader)
+	// Configure CSV reader to be more lenient with quotes
+	csvReader.LazyQuotes = true       // Allow quotes inside fields
+	csvReader.FieldsPerRecord = 9     // Expect exactly 9 fields per record
+	csvReader.TrimLeadingSpace = true // Trim leading space from fields
+
 	// Skip header
 	if _, err := csvReader.Read(); err != nil {
 		log.Printf("Error reading CSV header: %v", err)
@@ -186,14 +191,21 @@ func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 					}
 
 					// Parse dates according to the format: YYYY-MM-DD
-					geboortedatum, err := time.Parse("2006-01-02", record[4])
-					if err != nil {
-						log.Printf("Worker %d: Error parsing geboortedatum '%s': %v", workerId, record[4], err)
+					var geboortedatum, overlijdensdatum time.Time
+					if record[4] != "" {
+						var err error
+						geboortedatum, err = time.Parse("2006-01-02", strings.TrimSpace(record[4]))
+						if err != nil {
+							log.Printf("Worker %d: Error parsing geboortedatum '%s': %v", workerId, record[4], err)
+						}
 					}
 
-					overlijdensdatum, err := time.Parse("2006-01-02", record[6])
-					if err != nil {
-						log.Printf("Worker %d: Error parsing overlijdensdatum '%s': %v", workerId, record[6], err)
+					if record[6] != "" {
+						var err error
+						overlijdensdatum, err = time.Parse("2006-01-02", strings.TrimSpace(record[6]))
+						if err != nil {
+							log.Printf("Worker %d: Error parsing overlijdensdatum '%s': %v", workerId, record[6], err)
+						}
 					}
 
 					scan := strings.ToLower(record[8]) == "true"
@@ -270,6 +282,12 @@ func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 }
 
 func (h *Handler) UploadCSV(c *gin.Context) {
+	// Return 404 if there's no GCP connectivity
+	if !h.store.HasGCPConnectivity() {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
 	file, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
@@ -337,6 +355,12 @@ func (h *Handler) WebSearch(c *gin.Context) {
 }
 
 func (h *Handler) WebUpload(c *gin.Context) {
+	// Return 404 if there's no GCP connectivity
+	if !h.store.HasGCPConnectivity() {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
 	lang := c.DefaultQuery("lang", "nl") // Default to Dutch
 	t := translations.GetTranslation(lang)
 	languages := translations.SupportedLanguages

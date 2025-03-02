@@ -307,7 +307,6 @@ func (s *Store) rebuildDataFromIndex() error {
 		s.data[hit.ID] = b
 	}
 
-	log.Printf("Rebuilt in-memory data with %d records", len(s.data))
 	return nil
 }
 
@@ -903,8 +902,6 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 			batchPool.Put(result.batch)
 			nextChunkToProcess++
 		}
-		// Swap slices
-		previous, current = current, previous
 	}
 
 	if lastError != nil {
@@ -920,4 +917,9 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+// HasGCPConnectivity returns true if the store has a connection to GCP
+func (s *Store) HasGCPConnectivity() bool {
+	return s.gcsClient != nil
 }
