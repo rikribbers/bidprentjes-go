@@ -22,9 +22,9 @@ type Handler struct {
 	store *store.Store
 }
 
-func NewHandler() *Handler {
+func NewHandler(store *store.Store) *Handler {
 	return &Handler{
-		store: store.NewStore(),
+		store: store,
 	}
 }
 

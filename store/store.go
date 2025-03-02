@@ -2,6 +2,7 @@ package store
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/csv"
@@ -14,21 +15,19 @@ import (
 	"sync"
 	"time"
 
+	"bidprentjes-api/cloud"
 	"bidprentjes-api/models"
 
-	"cloud.google.com/go/storage"
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
 	"github.com/blevesearch/bleve/v2/analysis/lang/nl"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
 	"github.com/blevesearch/bleve/v2/search/query"
-	"google.golang.org/api/option"
 )
 
 const (
 	indexPath   = "/tmp/bidprentjes.bleve"
-	bucketName  = "bidprentjes-go-storage"
 	indexObject = "index/bidprentjes.bleve.tar.gz"
 	csvObject   = "data/bidprentjes.csv"
 )
@@ -37,7 +36,8 @@ type Store struct {
 	data       map[string]*models.Bidprentje
 	index      bleve.Index
 	mu         sync.RWMutex
-	gcsClient  *storage.Client
+	gcsClient  *cloud.StorageClient
+	bucketName string
 	syncTicker *time.Ticker
 	done       chan bool
 }
@@ -55,96 +55,51 @@ type BleveDocument struct {
 	Scan              bool   `json:"scan"`
 }
 
-func NewStore() *Store {
-	ctx := context.Background()
-
+func NewStore(ctx context.Context, bucketName string) *Store {
 	// Create store instance with empty fields
 	s := &Store{
-		data: make(map[string]*models.Bidprentje),
-		done: make(chan bool),
+		data:       make(map[string]*models.Bidprentje),
+		bucketName: bucketName,
+		done:       make(chan bool),
 	}
 
-	// Try to initialize GCS client, but continue without it if it fails
-	client, err := storage.NewClient(ctx, option.WithoutAuthentication())
-	if err != nil {
-		log.Printf("Failed to create GCS client, continuing in local-only mode: %v", err)
-	} else {
-		s.gcsClient = client
-	}
-
-	// First try to open existing index
-	if err := s.openExistingIndex(); err != nil {
-		log.Printf("No existing index found or error opening: %v", err)
-	}
-
-	// Check for local CSV file first
-	localCsvPath := "bidprentjes.csv"
-	if _, err := os.Stat(localCsvPath); err == nil {
-		log.Printf("Found local CSV file %s, recreating index...", localCsvPath)
-		if err := s.recreateIndexFromCSV(localCsvPath); err != nil {
-			log.Fatalf("Failed to process local CSV file: %v", err)
+	// Try to initialize GCS client
+	if bucketName != "" {
+		client, err := cloud.NewStorageClient(ctx, bucketName)
+		if err != nil {
+			log.Printf("Failed to create GCS client, continuing in local-only mode: %v", err)
+		} else {
+			s.gcsClient = client
 		}
-		// Rename local CSV after processing
-		if err := os.Rename(localCsvPath, localCsvPath+".processed"); err != nil {
-			log.Printf("Error renaming local CSV file: %v", err)
-		}
-	} else if s.gcsClient != nil && s.index == nil {
-		// Check for CSV in GCS only if we have a client and no index yet
-		bucket := s.gcsClient.Bucket(bucketName)
-		csvObj := bucket.Object(csvObject)
+	}
 
-		// Check if CSV exists in GCS
-		_, err = csvObj.Attrs(ctx)
-		if err == nil {
-			log.Printf("Found initialization file %s in GCS bucket, recreating index...", csvObject)
-
-			// Download and process CSV file
-			reader, err := csvObj.NewReader(ctx)
-			if err != nil {
-				log.Printf("Failed to read CSV from GCS: %v", err)
+	// First try to restore index from GCP backup
+	if s.gcsClient != nil {
+		if err := s.downloadIndex(ctx); err != nil {
+			log.Printf("Could not download index from GCP: %v", err)
+		} else {
+			log.Printf("Successfully restored index from GCP backup")
+			if err := s.openExistingIndex(); err != nil {
+				log.Printf("Error opening restored index: %v", err)
 			} else {
-				defer reader.Close()
-				if err := s.recreateIndexFromReader(reader); err != nil {
-					log.Printf("Failed to process GCS CSV file: %v", err)
+				// Rebuild in-memory data from restored index
+				if err := s.rebuildDataFromIndex(); err != nil {
+					log.Printf("Error rebuilding data from restored index: %v", err)
 				} else {
-					// Move processed CSV to processed folder
-					processedObj := bucket.Object("data/processed/" + filepath.Base(csvObject) + "." + time.Now().Format("20060102150405"))
-					if _, err := processedObj.CopierFrom(csvObj).Run(ctx); err != nil {
-						log.Printf("Error copying CSV to processed folder: %v", err)
-					} else {
-						// Delete original CSV only if copy was successful
-						if err := csvObj.Delete(ctx); err != nil {
-							log.Printf("Error deleting original CSV: %v", err)
-						}
-					}
+					// Start periodic sync
+					s.startPeriodicSync()
+					return s
 				}
 			}
 		}
 	}
 
-	// If still no index exists, create one
-	if s.index == nil {
-		// Try to download existing index from GCS first if we have a client
-		if s.gcsClient != nil {
-			if err := s.downloadIndex(ctx); err != nil {
-				log.Printf("Could not download index from GCS: %v", err)
-			}
-		}
-
-		// If still no index, create a new one
-		if s.index == nil {
-			if err := s.createNewIndex(); err != nil {
-				log.Fatalf("Failed to create new index: %v", err)
-			}
-		}
+	// If no index exists or restore failed, check for local CSV
+	if err := s.createNewIndex(); err != nil {
+		log.Fatalf("Failed to create new index: %v", err)
 	}
 
-	// Rebuild in-memory data from index
-	if err := s.rebuildDataFromIndex(); err != nil {
-		log.Printf("Error rebuilding data from index: %v", err)
-	}
-
-	// Start periodic sync only if we have a GCS client
+	// Start periodic sync if we have GCS client
 	if s.gcsClient != nil {
 		s.startPeriodicSync()
 	}
@@ -213,40 +168,7 @@ func (s *Store) createNewIndex() error {
 	return nil
 }
 
-// Helper function to recreate index from a CSV file
-func (s *Store) recreateIndexFromCSV(csvPath string) error {
-	if err := s.createNewIndex(); err != nil {
-		return err
-	}
-
-	file, err := os.Open(csvPath)
-	if err != nil {
-		return fmt.Errorf("failed to open CSV file: %v", err)
-	}
-	defer file.Close()
-
-	return s.recreateIndexFromReader(file)
-}
-
-// Helper function to recreate index from a reader
-func (s *Store) recreateIndexFromReader(reader io.Reader) error {
-	count, err := s.ProcessCSVUpload(reader)
-	if err != nil {
-		return fmt.Errorf("failed to process CSV: %v", err)
-	}
-	log.Printf("Successfully processed %d records", count)
-
-	// Upload new index to GCS if we have a client
-	if s.gcsClient != nil {
-		ctx := context.Background()
-		if err := s.uploadIndex(ctx); err != nil {
-			log.Printf("Failed to upload initial index to GCS: %v", err)
-		}
-	}
-
-	return nil
-}
-
+// Helper function to open existing index
 func (s *Store) openExistingIndex() error {
 	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
 		return fmt.Errorf("index does not exist")
@@ -305,72 +227,6 @@ func (s *Store) rebuildDataFromIndex() error {
 		}
 
 		s.data[hit.ID] = b
-	}
-
-	return nil
-}
-
-func (s *Store) openOrCreateIndex() error {
-	var err error
-	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
-		// Create a new index
-		mapping := bleve.NewIndexMapping()
-		s.index, err = bleve.New(indexPath, mapping)
-	} else {
-		// Open existing index
-		s.index, err = bleve.Open(indexPath)
-	}
-	return err
-}
-
-func (s *Store) downloadIndex(ctx context.Context) error {
-	bucket := s.gcsClient.Bucket(bucketName)
-	obj := bucket.Object(indexObject)
-
-	// Check if index exists in GCS
-	_, err := obj.Attrs(ctx)
-	if err == storage.ErrObjectNotExist {
-		return fmt.Errorf("no index found in GCS")
-	}
-	if err != nil {
-		return fmt.Errorf("error checking index in GCS: %v", err)
-	}
-
-	// Create temporary directory
-	if err := os.MkdirAll(filepath.Dir(indexPath), 0755); err != nil {
-		return fmt.Errorf("failed to create index directory: %v", err)
-	}
-
-	// Download and extract index
-	reader, err := obj.NewReader(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to create reader: %v", err)
-	}
-	defer reader.Close()
-
-	// Run tar command to extract
-	if err := extractTarGz(reader, filepath.Dir(indexPath)); err != nil {
-		return fmt.Errorf("failed to extract index: %v", err)
-	}
-
-	return nil
-}
-
-func (s *Store) uploadIndex(ctx context.Context) error {
-	bucket := s.gcsClient.Bucket(bucketName)
-	obj := bucket.Object(indexObject)
-
-	// Create writer
-	writer := obj.NewWriter(ctx)
-
-	// Create tar.gz of the index directory
-	if err := createTarGz(indexPath, writer); err != nil {
-		writer.Close()
-		return fmt.Errorf("failed to create tar.gz: %v", err)
-	}
-
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("failed to close writer: %v", err)
 	}
 
 	return nil
@@ -922,4 +778,53 @@ func abs(x int) int {
 // HasGCPConnectivity returns true if the store has a connection to GCP
 func (s *Store) HasGCPConnectivity() bool {
 	return s.gcsClient != nil
+}
+
+// downloadIndex downloads and extracts the index backup from GCP
+func (s *Store) downloadIndex(ctx context.Context) error {
+	reader, err := s.gcsClient.DownloadFile(ctx, indexObject)
+	if err != nil {
+		return fmt.Errorf("failed to download index: %v", err)
+	}
+
+	// Create temporary directory
+	if err := os.MkdirAll(filepath.Dir(indexPath), 0755); err != nil {
+		return fmt.Errorf("failed to create index directory: %v", err)
+	}
+
+	// Extract the tar.gz
+	if err := extractTarGz(reader, filepath.Dir(indexPath)); err != nil {
+		return fmt.Errorf("failed to extract index: %v", err)
+	}
+
+	return nil
+}
+
+// uploadIndex creates a tar.gz of the index and uploads it to GCP
+func (s *Store) uploadIndex(ctx context.Context) error {
+	// Create a buffer to write the tar.gz to
+	var buf bytes.Buffer
+
+	// Create tar.gz of the index directory
+	if err := createTarGz(indexPath, &buf); err != nil {
+		return fmt.Errorf("failed to create tar.gz: %v", err)
+	}
+
+	// Create a reader from the buffer
+	reader := bytes.NewReader(buf.Bytes())
+
+	// Upload the tar.gz to GCP
+	if err := s.gcsClient.UploadFile(ctx, indexObject, reader); err != nil {
+		return fmt.Errorf("failed to upload index: %v", err)
+	}
+
+	return nil
+}
+
+// BackupIndex creates an immediate backup of the index to GCP
+func (s *Store) BackupIndex(ctx context.Context) error {
+	if s.gcsClient == nil {
+		return fmt.Errorf("no GCP connectivity available")
+	}
+	return s.uploadIndex(ctx)
 }
