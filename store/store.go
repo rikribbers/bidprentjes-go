@@ -33,13 +33,14 @@ const (
 )
 
 type Store struct {
-	data       map[string]*models.Bidprentje
-	index      bleve.Index
-	mu         sync.RWMutex
-	gcsClient  *cloud.StorageClient
-	bucketName string
-	syncTicker *time.Ticker
-	done       chan bool
+	data          map[string]*models.Bidprentje
+	index         bleve.Index
+	mu            sync.RWMutex
+	gcsClient     *cloud.StorageClient
+	bucketName    string
+	syncTicker    *time.Ticker
+	done          chan bool
+	hasValidIndex bool
 }
 
 // BleveDocument represents a document in the Bleve index
@@ -58,9 +59,10 @@ type BleveDocument struct {
 func NewStore(ctx context.Context, bucketName string) *Store {
 	// Create store instance with empty fields
 	s := &Store{
-		data:       make(map[string]*models.Bidprentje),
-		bucketName: bucketName,
-		done:       make(chan bool),
+		data:          make(map[string]*models.Bidprentje),
+		bucketName:    bucketName,
+		done:          make(chan bool),
+		hasValidIndex: false,
 	}
 
 	// Try to initialize GCS client
@@ -88,6 +90,7 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 				} else {
 					// Start periodic sync
 					s.startPeriodicSync()
+					s.hasValidIndex = true
 					return s
 				}
 			}
@@ -467,11 +470,6 @@ func (s *Store) List(page, pageSize int) *models.PaginatedResponse {
 }
 
 func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
-	startTime := time.Now()
-	defer func() {
-		log.Printf("Search completed in %v", time.Since(startTime))
-	}()
-
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -538,10 +536,8 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 	searchRequest.SortBy([]string{"-_score"}) // Sort by score descending
 	searchRequest.Fields = []string{"*"}      // Request all stored fields
 
-	searchStartTime := time.Now()
+	startTime := time.Now()
 	searchResults, err := s.index.Search(searchRequest)
-	log.Printf("Bleve search completed in %v", time.Since(searchStartTime))
-
 	if err != nil {
 		log.Printf("Search error: %v", err)
 		return &models.PaginatedResponse{
@@ -551,6 +547,7 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 			PageSize:   params.PageSize,
 		}
 	}
+	log.Printf("Found %d items in %v", searchResults.Total, time.Since(startTime))
 
 	// Convert results to Bidprentje objects
 	items := make([]models.Bidprentje, 0, len(searchResults.Hits))
@@ -560,7 +557,6 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 		}
 	}
 
-	log.Printf("Found %d items matching search", len(items))
 	return &models.PaginatedResponse{
 		Items:      items,
 		TotalCount: int(searchResults.Total),
@@ -764,6 +760,10 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 		return 0, lastError
 	}
 
+	s.mu.Lock()
+	s.hasValidIndex = true
+	s.mu.Unlock()
+
 	log.Printf("Successfully processed all %d records in %v", totalRecords, time.Since(startTime))
 	return totalRecords, nil
 }
@@ -827,4 +827,11 @@ func (s *Store) BackupIndex(ctx context.Context) error {
 		return fmt.Errorf("no GCP connectivity available")
 	}
 	return s.uploadIndex(ctx)
+}
+
+// HasValidIndex returns true if we have successfully restored or created an index with data
+func (s *Store) HasValidIndex() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.hasValidIndex
 }
