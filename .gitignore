@@ -21,6 +21,7 @@ go.work
 
 # Generated CSV files
 *.csv
+*.csv.processed
 
 # Excel files
 *.xls
@@ -59,4 +60,7 @@ debug.test
 # Build output directory
 bin/
 dist/
-build/ 
+build/
+
+# JSON files in root only
+/*.json 

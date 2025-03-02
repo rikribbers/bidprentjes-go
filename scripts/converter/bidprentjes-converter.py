@@ -5,10 +5,20 @@ from datetime import datetime
 # read only selective sheetnames
 db = xl.readxl(fn='bidprentjes.xlsx', ws=('website'))
 
-# extract a datetime Object or Nono
-
-
+# extract a datetime Object or None
 def extractDate(dateStr):
+    if not dateStr or dateStr.strip() == '':
+        return None
+    
+    # Clean the date string by removing trailing " 0"
+    dateStr = dateStr.strip()
+    if dateStr.endswith(" 0"):
+        dateStr = dateStr[:-2]
+    
+    # If the string contains a time component (00:00:00), remove it
+    if " 00:00:00" in dateStr:
+        dateStr = dateStr.replace(" 00:00:00", "")
+    
     try:
         return datetime.strptime(dateStr, '%Y/%m/%d')
     except:
@@ -16,18 +26,27 @@ def extractDate(dateStr):
             return datetime.strptime(dateStr, '%d-%m-%Y')
         except:
             try:
-                return datetime.strptime(dateStr[:-9], '%d-%m-%Y')
+                # Handle any remaining dates with time component by truncating
+                if len(dateStr) > 10:
+                    dateStr = dateStr[:10]
+                return datetime.strptime(dateStr, '%d-%m-%Y')
             except:
-                if dateStr == '':
-                    return None
-                else:
-                    print('Parsing date failed for id: ' +
-                          str(id) + ' dataStr: ' + dateStr)
-                    return None
+                print('Parsing date failed for dataStr:', dateStr)
+                return None
 
+def clean_field(field):
+    if field == '':
+        return ''
+    # Convert to string and remove any nested quotes and parentheses
+    field = str(field).replace('"', '').replace('(', '').replace(')', '')
+    # Remove any trailing commas
+    field = field.rstrip(',')
+    # If the field contains a comma, wrap it in quotes
+    if ',' in field:
+        return f'"{field}"'
+    return field
 
 with open('bidprentjes.csv', 'w') as output_file:
-
     i = 0
     for row in db.ws(ws='website').rows:
         # id,geboren,overleden,achternaam,geboorteplaats,voorvoegsel,voornaam,rustplaats,scan
@@ -36,46 +55,37 @@ with open('bidprentjes.csv', 'w') as output_file:
         result = str(id) + ","
 
         voornaam = row[6]
-        if voornaam != '':
-            result = result + '"' + str(voornaam) + '"'
+        result = result + clean_field(voornaam)
 
         result = result + ','
 
         voorvoegsel = row[5]
-        if voorvoegsel != '':
-            result = result + '"' + str(voorvoegsel) + '"'
+        result = result + clean_field(voorvoegsel)
 
         result = result + ','
 
         achternaam = row[3]
-        if achternaam != '':
-            result = result + '"' + str(achternaam) + '"'
+        result = result + clean_field(achternaam)
 
         result = result + ','
 
         geboren = extractDate(row[1])
-        geborenStr = ''
-        if geboren != None:
-            result = result + geboren.strftime('%Y-%m-%d')
-
-        result = result + ','
+        result = result + ','  # Always add comma for empty date
+        if geboren is not None:
+            result = result[:-1] + geboren.strftime('%Y-%m-%d') + ','  # Replace last comma with formatted date
 
         geboorteplaats = row[4]
-        if geboorteplaats != '':
-            result = result + '"' + str(geboorteplaats) + '"'
+        result = result + clean_field(geboorteplaats)
 
-        result = result + ','
-
+        result = result + ','  # Always add comma for empty date
         overleden = extractDate(row[2])
-        overledenStr = ''
-        if overleden != None:
-            result = result + overleden.strftime('%Y-%m-%d')
+        if overleden is not None:
+            result = result[:-1] + overleden.strftime('%Y-%m-%d') + ','  # Replace last comma with formatted date
 
         result = result + ','
 
         rustplaats = row[7]
-        if rustplaats != '':
-            result = result + '"' + str(rustplaats) + '"'
+        result = result + clean_field(rustplaats)
 
         result = result + ','
 

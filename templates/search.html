@@ -2,7 +2,10 @@
 <html>
 <head>
     <title>{{.t.Search}}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/flag-icon-css@4.1.7/css/flag-icons.min.css" rel="stylesheet">
     <style>
         .language-switch {
@@ -48,26 +51,39 @@
         {{end}}
     </div>
 
-    <div class="container mt-4">
-        <h1>{{.t.Search}}</h1>
-        
-        <form method="GET" class="mb-4">
-            <div class="input-group">
-                <input type="text" name="query" class="form-control" placeholder="{{.t.SearchPlaceholder}}" value="{{.searchQuery}}">
-                <input type="hidden" name="lang" value="{{.lang}}">
-                <button type="submit" class="btn btn-primary">{{.t.Search}}</button>
+    <div class="container mt-5">
+        <div class="row mb-4">
+            <div class="col">
+                <h1>{{.t.Search}}</h1>
+                <p class="lead">{{.description}}</p>
             </div>
-            <small class="form-text text-muted">
-                {{.t.SearchHelp}}
-            </small>
-        </form>
+        </div>
 
-        {{if .data}}
+        <div class="row mb-4">
+            <div class="col">
+                <form method="GET" action="/search" class="mb-4">
+                    <div class="input-group">
+                        <input type="text" name="query" class="form-control" placeholder="{{.t.SearchPlaceholder}}" value="{{.searchQuery}}">
+                        <input type="hidden" name="lang" value="{{.lang}}">
+                        <button type="submit" class="btn btn-primary">{{.t.Search}}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{if .data.Items}}
+        <div class="row mb-3">
+            <div class="col">
+                <h2>{{.t.SearchResults}}</h2>
+                <p>{{.t.TotalResults}}: {{.data.TotalCount}}</p>
+            </div>
+        </div>
+
         <div class="table-responsive">
-            <table class="table">
+            <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th>{{.t.ID}}</th>
                         <th>{{.t.FirstName}}</th>
                         <th>{{.t.Prefix}}</th>
                         <th>{{.t.LastName}}</th>
@@ -75,7 +91,7 @@
                         <th>{{.t.BirthPlace}}</th>
                         <th>{{.t.DeathDate}}</th>
                         <th>{{.t.DeathPlace}}</th>
-                        <th>{{.t.Scan}}</th>
+                        <th>{{.t.HasScan}}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -85,54 +101,63 @@
                         <td>{{.Voornaam}}</td>
                         <td>{{.Tussenvoegsel}}</td>
                         <td>{{.Achternaam}}</td>
-                        <td>{{.Geboortedatum.Format "02-01-2006"}}</td>
+                        <td>{{.Geboortedatum.Format "2006-01-02"}}</td>
                         <td>{{.Geboorteplaats}}</td>
-                        <td>{{.Overlijdensdatum.Format "02-01-2006"}}</td>
+                        <td>{{.Overlijdensdatum.Format "2006-01-02"}}</td>
                         <td>{{.Overlijdensplaats}}</td>
-                        <td>
-                            {{if .Scan}}
-                                <span class="badge bg-success">{{$.t.Yes}}</span>
-                            {{else}}
-                                <span class="badge bg-secondary">{{$.t.No}}</span>
-                            {{end}}
-                        </td>
+                        <td>{{if .Scan}}{{$.t.Yes}}{{else}}{{$.t.No}}{{end}}</td>
                     </tr>
                     {{end}}
                 </tbody>
             </table>
         </div>
 
-        {{if gt .data.TotalCount 0}}
+        {{if gt .data.TotalCount .data.PageSize}}
         <nav aria-label="Page navigation">
-            <ul class="pagination pagination-sm justify-content-center" style="max-width: 500px; margin: 20px auto;">
+            <ul class="pagination justify-content-center">
                 {{if gt .data.Page 1}}
                 <li class="page-item">
                     <a class="page-link" href="/search?page={{subtract .data.Page 1}}&query={{.searchQuery}}&lang={{.lang}}">&laquo;</a>
                 </li>
                 {{end}}
 
-                {{$totalPages := divide .data.TotalCount .data.PageSize}}
                 {{$currentPage := .data.Page}}
-                {{range $i := sequence $totalPages}}
-                    {{$page := add $i 1}}
-                    {{if or 
-                        (le $page 3) 
-                        (eq $page $currentPage)
-                        (eq $page (subtract $currentPage 1))
-                        (eq $page (add $currentPage 1))
-                        (ge $page (subtract $totalPages 2))
-                    }}
+                {{$totalPages := divide .data.TotalCount .data.PageSize}}
+                
+                <!-- First page -->
+                <li class="page-item {{if eq 1 $currentPage}}active{{end}}">
+                    <a class="page-link" href="/search?page=1&query={{$.searchQuery}}&lang={{$.lang}}">1</a>
+                </li>
+
+                <!-- Left ellipsis -->
+                {{if gt $currentPage 3}}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {{end}}
+
+                <!-- Pages around current page -->
+                {{range $i := sequence 3}}
+                    {{$page := add (subtract $currentPage 1) $i}}
+                    {{if and (gt $page 1) (lt $page $totalPages)}}
                         <li class="page-item {{if eq $page $currentPage}}active{{end}}">
                             <a class="page-link" href="/search?page={{$page}}&query={{$.searchQuery}}&lang={{$.lang}}">{{$page}}</a>
                         </li>
-                    {{else if or 
-                        (eq $page 4) 
-                        (eq $page (subtract $totalPages 3))
-                    }}
-                        <li class="page-item disabled">
-                            <span class="page-link">...</span>
-                        </li>
                     {{end}}
+                {{end}}
+
+                <!-- Right ellipsis -->
+                {{if lt $currentPage (subtract $totalPages 2)}}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {{end}}
+
+                <!-- Last page -->
+                {{if gt $totalPages 1}}
+                <li class="page-item {{if eq $totalPages $currentPage}}active{{end}}">
+                    <a class="page-link" href="/search?page={{$totalPages}}&query={{$.searchQuery}}&lang={{$.lang}}">{{$totalPages}}</a>
+                </li>
                 {{end}}
 
                 {{if lt .data.Page $totalPages}}
@@ -143,9 +168,15 @@
             </ul>
         </nav>
         {{end}}
+
+        {{else}}
+        <div class="alert alert-info">
+            {{.t.NoResults}}
+        </div>
         {{end}}
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     function switchLanguage(lang) {
         // Store language preference

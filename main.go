@@ -5,9 +5,11 @@ import (
 	"html/template"
 	"log"
 	"os"
+	"time"
 
 	"bidprentjes-api/cloud"
 	"bidprentjes-api/handlers"
+	"bidprentjes-api/store"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,34 +17,51 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// Initialize handlers
-	handler := handlers.NewHandler()
-
 	// Get bucket name from environment variable
 	bucketName := os.Getenv("STORAGE_BUCKET")
 	if bucketName == "" {
-		log.Printf("Warning: STORAGE_BUCKET environment variable not set, skipping initial data load")
-	} else {
-		// Try to load initial data from GCP
+		log.Printf("Warning: STORAGE_BUCKET environment variable not set, running in local-only mode")
+	}
+
+	// Initialize store with bucket name
+	store := store.NewStore(ctx, bucketName)
+	defer store.Close()
+
+	// Initialize handlers with store
+	handler := handlers.NewHandler(store)
+
+	// If we have a bucket name, check for CSV file
+	if bucketName != "" {
 		storageClient, err := cloud.NewStorageClient(ctx, bucketName)
 		if err != nil {
 			log.Printf("Warning: Failed to initialize GCP storage client: %v", err)
 		} else {
 			defer storageClient.Close()
 
-			// Try to download the file
-			reader, err := storageClient.DownloadFile(ctx, "bidprentjes.csv")
+			// Try to download the CSV file
+			reader, err := storageClient.DownloadFile(ctx, "data/bidprentjes.csv")
 			if err != nil {
 				log.Printf("Warning: Failed to download bidprentjes.csv: %v", err)
 			} else {
-				// Use the existing upload logic to process the file
+				// Process the CSV file
 				count, err := handler.ProcessCSVUpload(reader)
 				if err != nil {
 					log.Printf("Warning: Failed to process CSV file: %v", err)
 				} else {
 					log.Printf("Successfully loaded %d records from GCP storage", count)
-					// Disable upload and web interfaces
-					handler.SetReadOnly(true)
+
+					// Move the processed CSV file
+					if err := storageClient.MoveFile(ctx, "data/bidprentjes.csv", "data/processed/bidprentjes.csv."+time.Now().Format("20060102150405")); err != nil {
+						log.Printf("Warning: Failed to move processed CSV file: %v", err)
+					}
+
+					// Create immediate backup of the index after processing
+					log.Printf("Creating immediate backup of the index...")
+					if err := store.BackupIndex(ctx); err != nil {
+						log.Printf("Warning: Failed to create immediate index backup: %v", err)
+					} else {
+						log.Printf("Successfully created immediate index backup")
+					}
 				}
 			}
 		}
@@ -52,9 +71,18 @@ func main() {
 
 	// Add template functions
 	r.SetFuncMap(template.FuncMap{
-		"subtract": func(a, b int) int { return a - b },
-		"add":      func(a, b int) int { return a + b },
-		"divide":   func(a, b int) int { return (a + b - 1) / b }, // Ceiling division
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"subtract": func(a, b int) int {
+			return a - b
+		},
+		"divide": func(a, b int) int {
+			if b == 0 {
+				return 0
+			}
+			return a / b
+		},
 		"sequence": func(n int) []int {
 			seq := make([]int, n)
 			for i := range seq {
@@ -69,14 +97,19 @@ func main() {
 	r.LoadHTMLGlob("templates/*.html")
 	log.Println("Templates loaded successfully")
 
-	// Web Routes
-	r.GET("/", handler.WebIndex) // Add root route
-	r.GET("/web", handler.WebIndex)
-	r.GET("/web/create", handler.WebCreate)
-	r.GET("/web/edit/:id", handler.WebEdit)
+	// API routes
+	r.GET("/api/bidprentjes", handler.ListBidprentjes)
+	r.GET("/api/bidprentjes/:id", handler.GetBidprentje)
+	r.POST("/api/bidprentjes", handler.CreateBidprentje)
+	r.PUT("/api/bidprentjes/:id", handler.UpdateBidprentje)
+	r.DELETE("/api/bidprentjes/:id", handler.DeleteBidprentje)
+	r.POST("/api/bidprentjes/search", handler.SearchBidprentjes)
+	r.POST("/api/bidprentjes/upload", handler.UploadCSV)
+
+	// Keep only search and upload web endpoints
 	r.GET("/search", handler.WebSearch)
 	r.GET("/upload", handler.WebUpload)
-	r.POST("/upload", handler.UploadCSV) // Make sure this matches the form's endpoint
+	r.POST("/upload", handler.UploadCSV)
 
 	log.Fatal(r.Run(":8080"))
 }

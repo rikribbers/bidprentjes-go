@@ -48,6 +48,13 @@ type Translations struct {
 	CSVHeader            string
 	SelectFileError      string
 	Uploading            string
+	SearchResults        string
+	TotalResults         string
+	HasScan              string
+	NoResults            string
+	Page                 string
+	Of                   string
+	ID                   string
 }
 
 var translations = map[string]Translations{
@@ -87,6 +94,13 @@ var translations = map[string]Translations{
 		CSVHeader:            "First line should be the header row",
 		SelectFileError:      "Please select a file",
 		Uploading:            "Uploading...",
+		SearchResults:        "Search Results",
+		TotalResults:         "Total Results",
+		HasScan:              "Has Scan",
+		NoResults:            "No results found",
+		Page:                 "Page",
+		Of:                   "of",
+		ID:                   "ID",
 	},
 	"nl": {
 		Search:               "Bidprentjes zoeken",
@@ -124,6 +138,13 @@ var translations = map[string]Translations{
 		CSVHeader:            "Eerste regel moet de kolomnamen bevatten",
 		SelectFileError:      "Selecteer een bestand",
 		Uploading:            "Uploaden...",
+		SearchResults:        "Zoekresultaten",
+		TotalResults:         "Totaal aantal resultaten",
+		HasScan:              "Scan beschikbaar",
+		NoResults:            "Geen resultaten gevonden",
+		Page:                 "Pagina",
+		Of:                   "van",
+		ID:                   "ID",
 	},
 	"de": {
 		Search:               "Bidprentjes suchen",
@@ -161,6 +182,13 @@ var translations = map[string]Translations{
 		CSVHeader:            "Erste Zeile muss die Spaltenüberschriften enthalten",
 		SelectFileError:      "Bitte wählen Sie eine Datei aus",
 		Uploading:            "Wird hochgeladen...",
+		SearchResults:        "Suchergebnisse",
+		TotalResults:         "Gesamtergebnisse",
+		HasScan:              "Scan verfügbar",
+		NoResults:            "Keine Ergebnisse gefunden",
+		Page:                 "Seite",
+		Of:                   "von",
+		ID:                   "ID",
 	},
 }
 
