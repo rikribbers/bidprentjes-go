@@ -240,12 +240,32 @@ func (s *Store) startPeriodicSync() {
 		for {
 			select {
 			case <-s.syncTicker.C:
-				ctx := context.Background()
-				if err := s.uploadIndex(ctx); err != nil {
-					log.Printf("Failed to sync index to GCS: %v", err)
-				} else {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
+				// Try up to 3 times with exponential backoff
+				var lastErr error
+				for i := 0; i < 3; i++ {
+					if i > 0 {
+						// Wait before retry with exponential backoff
+						time.Sleep(time.Duration(1<<uint(i)) * time.Second)
+						log.Printf("Retrying index sync (attempt %d/3)...", i+1)
+					}
+
+					if err := s.uploadIndex(ctx); err != nil {
+						lastErr = err
+						log.Printf("Failed to sync index to GCS (attempt %d/3): %v", i+1, err)
+						continue
+					}
+
 					log.Printf("Successfully synced index to GCS")
+					break
 				}
+
+				if lastErr != nil {
+					log.Printf("All attempts to sync index failed: %v", lastErr)
+				}
+
+				cancel()
 			case <-s.done:
 				s.syncTicker.Stop()
 				return
@@ -262,9 +282,14 @@ func (s *Store) Close() error {
 
 	// Final sync to GCS if we have a client
 	if s.gcsClient != nil {
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Try to sync one last time
 		if err := s.uploadIndex(ctx); err != nil {
 			log.Printf("Failed final index sync to GCS: %v", err)
+		} else {
+			log.Printf("Successfully completed final index sync to GCS")
 		}
 	}
 
