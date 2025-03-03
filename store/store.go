@@ -2,7 +2,6 @@ package store
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/csv"
@@ -782,36 +781,70 @@ func (s *Store) HasGCPConnectivity() bool {
 
 // downloadIndex downloads and extracts the index backup from GCP
 func (s *Store) downloadIndex(ctx context.Context) error {
+	log.Printf("Downloading index from GCP: %s", indexObject)
+
+	// First, ensure the index directory doesn't exist (to avoid conflicts)
+	if err := os.RemoveAll(indexPath); err != nil {
+		log.Printf("Warning: Failed to remove existing index directory: %v", err)
+	}
+
+	// Create the parent directory
+	if err := os.MkdirAll(filepath.Dir(indexPath), 0755); err != nil {
+		return fmt.Errorf("failed to create index parent directory: %v", err)
+	}
+
+	// Download the index file
 	reader, err := s.gcsClient.DownloadFile(ctx, indexObject)
 	if err != nil {
 		return fmt.Errorf("failed to download index: %v", err)
 	}
 
-	// Create temporary directory
-	if err := os.MkdirAll(filepath.Dir(indexPath), 0755); err != nil {
-		return fmt.Errorf("failed to create index directory: %v", err)
-	}
+	log.Printf("Successfully downloaded index, extracting...")
 
-	// Extract the tar.gz
+	// Extract the tar.gz to the parent directory of indexPath
 	if err := extractTarGz(reader, filepath.Dir(indexPath)); err != nil {
 		return fmt.Errorf("failed to extract index: %v", err)
 	}
 
+	// Verify the index directory exists after extraction
+	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
+		return fmt.Errorf("index directory not found after extraction")
+	}
+
+	log.Printf("Successfully extracted index to %s", indexPath)
 	return nil
 }
 
 // uploadIndex creates a tar.gz of the index and uploads it to GCP
 func (s *Store) uploadIndex(ctx context.Context) error {
-	// Create a buffer to write the tar.gz to
-	var buf bytes.Buffer
+	// First verify the index exists and is valid
+	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
+		return fmt.Errorf("index directory does not exist")
+	}
+
+	// Create a temporary file for the tar.gz
+	tempFile, err := os.CreateTemp("", "bidprentjes-index-*.tar.gz")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %v", err)
+	}
+	defer os.Remove(tempFile.Name()) // Clean up temp file after we're done
 
 	// Create tar.gz of the index directory
-	if err := createTarGz(indexPath, &buf); err != nil {
+	if err := createTarGz(indexPath, tempFile); err != nil {
 		return fmt.Errorf("failed to create tar.gz: %v", err)
 	}
 
-	// Create a reader from the buffer
-	reader := bytes.NewReader(buf.Bytes())
+	// Close the temp file before uploading
+	if err := tempFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temporary file: %v", err)
+	}
+
+	// Open the temp file for reading
+	reader, err := os.Open(tempFile.Name())
+	if err != nil {
+		return fmt.Errorf("failed to open temporary file for upload: %v", err)
+	}
+	defer reader.Close()
 
 	// Upload the tar.gz to GCP
 	if err := s.gcsClient.UploadFile(ctx, indexObject, reader); err != nil {
