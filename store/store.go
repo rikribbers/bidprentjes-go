@@ -37,8 +37,6 @@ type Store struct {
 	mu            sync.RWMutex
 	gcsClient     *cloud.StorageClient
 	bucketName    string
-	syncTicker    *time.Ticker
-	done          chan bool
 	hasValidIndex bool
 }
 
@@ -60,7 +58,6 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 	s := &Store{
 		data:          make(map[string]*models.Bidprentje),
 		bucketName:    bucketName,
-		done:          make(chan bool),
 		hasValidIndex: false,
 	}
 
@@ -87,8 +84,6 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 				if err := s.rebuildDataFromIndex(); err != nil {
 					log.Printf("Error rebuilding data from restored index: %v", err)
 				} else {
-					// Start periodic sync
-					s.startPeriodicSync()
 					s.hasValidIndex = true
 					return s
 				}
@@ -99,11 +94,6 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 	// If no index exists or restore failed, check for local CSV
 	if err := s.createNewIndex(); err != nil {
 		log.Fatalf("Failed to create new index: %v", err)
-	}
-
-	// Start periodic sync if we have GCS client
-	if s.gcsClient != nil {
-		s.startPeriodicSync()
 	}
 
 	return s
@@ -234,52 +224,7 @@ func (s *Store) rebuildDataFromIndex() error {
 	return nil
 }
 
-func (s *Store) startPeriodicSync() {
-	s.syncTicker = time.NewTicker(5 * time.Minute)
-	go func() {
-		for {
-			select {
-			case <-s.syncTicker.C:
-				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-
-				// Try up to 3 times with exponential backoff
-				var lastErr error
-				for i := 0; i < 3; i++ {
-					if i > 0 {
-						// Wait before retry with exponential backoff
-						time.Sleep(time.Duration(1<<uint(i)) * time.Second)
-						log.Printf("Retrying index sync (attempt %d/3)...", i+1)
-					}
-
-					if err := s.uploadIndex(ctx); err != nil {
-						lastErr = err
-						log.Printf("Failed to sync index to GCS (attempt %d/3): %v", i+1, err)
-						continue
-					}
-
-					log.Printf("Successfully synced index to GCS")
-					break
-				}
-
-				if lastErr != nil {
-					log.Printf("All attempts to sync index failed: %v", lastErr)
-				}
-
-				cancel()
-			case <-s.done:
-				s.syncTicker.Stop()
-				return
-			}
-		}
-	}()
-}
-
 func (s *Store) Close() error {
-	if s.syncTicker != nil {
-		s.done <- true
-		close(s.done)
-	}
-
 	// Final sync to GCS if we have a client
 	if s.gcsClient != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
