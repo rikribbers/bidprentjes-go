@@ -269,7 +269,7 @@ func createTarGz(src string, writer io.Writer) error {
 		}
 
 		// Update header name to be relative to src directory
-		relPath, err := filepath.Rel(src, file)
+		relPath, err := filepath.Rel(filepath.Dir(src), file)
 		if err != nil {
 			return fmt.Errorf("failed to get relative path: %v", err)
 		}
@@ -309,6 +309,11 @@ func extractTarGz(reader io.Reader, dst string) error {
 
 	tarReader := tar.NewReader(gzReader)
 
+	// First, ensure the destination directory exists
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %v", err)
+	}
+
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -344,6 +349,11 @@ func extractTarGz(reader io.Reader, dst string) error {
 				return fmt.Errorf("failed to copy file contents: %v", err)
 			}
 		}
+	}
+
+	// Verify the index directory exists after extraction
+	if _, err := os.Stat(filepath.Join(dst, "bidprentjes.bleve")); os.IsNotExist(err) {
+		return fmt.Errorf("index directory not found after extraction")
 	}
 
 	return nil
