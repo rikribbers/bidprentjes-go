@@ -516,9 +516,9 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 		field string
 		boost float64
 	}{
-		{"id", 10.0},
+		{"id", 3.0},
+		{"achternaam", 8.0},
 		{"voornaam", 5.0},
-		{"achternaam", 5.0},
 		{"tussenvoegsel", 3.0},
 		{"geboorteplaats", 3.0},
 		{"overlijdensplaats", 3.0},
@@ -536,8 +536,8 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 		field string
 		boost float64
 	}{
+		{"achternaam", 4.0},
 		{"voornaam", 2.0},
-		{"achternaam", 2.0},
 		{"geboorteplaats", 1.0},
 		{"overlijdensplaats", 1.0},
 	}
