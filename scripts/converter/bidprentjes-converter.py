@@ -56,17 +56,14 @@ with open('bidprentjes.csv', 'w') as output_file:
 
         voornaam = row[6]
         result = result + clean_field(voornaam)
-
         result = result + ','
 
         voorvoegsel = row[5]
         result = result + clean_field(voorvoegsel)
-
         result = result + ','
 
         achternaam = row[3]
         result = result + clean_field(achternaam)
-
         result = result + ','
 
         geboren = extractDate(row[1])
@@ -76,17 +73,15 @@ with open('bidprentjes.csv', 'w') as output_file:
 
         geboorteplaats = row[4]
         result = result + clean_field(geboorteplaats)
+        result = result + ','
 
         result = result + ','  # Always add comma for empty date
         overleden = extractDate(row[2])
         if overleden is not None:
             result = result[:-1] + overleden.strftime('%Y-%m-%d') + ','  # Replace last comma with formatted date
 
-        result = result + ','
-
         rustplaats = row[7]
         result = result + clean_field(rustplaats)
-
         result = result + ','
 
         scan = row[8]

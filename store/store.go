@@ -71,8 +71,46 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 		}
 	}
 
-	// First try to restore index from GCP backup
+	// 1. First try to find and process local CSV file
+	if localFile, err := os.Open("bidprentjes.csv"); err == nil {
+		log.Printf("Found local CSV file, processing...")
+		if err := s.createNewIndex(); err != nil {
+			log.Printf("Failed to create new index: %v", err)
+		} else {
+			if _, err := s.ProcessCSVUpload(localFile); err != nil {
+				log.Printf("Failed to process local CSV: %v", err)
+			} else {
+				s.hasValidIndex = true
+				localFile.Close()
+				return s
+			}
+		}
+		localFile.Close()
+	}
+
+	// 2. If no local CSV, try to download and process CSV from GCP
 	if s.gcsClient != nil {
+		log.Printf("Checking for CSV file in GCP bucket...")
+		if reader, err := s.gcsClient.DownloadFile(ctx, csvObject); err == nil {
+			log.Printf("Found CSV file in GCP bucket, processing...")
+			if err := s.createNewIndex(); err != nil {
+				log.Printf("Failed to create new index: %v", err)
+			} else {
+				if _, err := s.ProcessCSVUpload(reader); err != nil {
+					log.Printf("Failed to process GCP CSV: %v", err)
+				} else {
+					s.hasValidIndex = true
+					return s
+				}
+			}
+		} else {
+			log.Printf("No CSV file found in GCP bucket: %v", err)
+		}
+	}
+
+	// 3. If no CSV found, try to restore index from GCP backup
+	if s.gcsClient != nil {
+		log.Printf("Attempting to restore index from GCP backup...")
 		if err := s.downloadIndex(ctx); err != nil {
 			log.Printf("Could not download index from GCP: %v", err)
 		} else {
@@ -91,7 +129,8 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 		}
 	}
 
-	// If no index exists or restore failed, check for local CSV
+	// If we get here, we need to create a new empty index
+	log.Printf("Creating new empty index...")
 	if err := s.createNewIndex(); err != nil {
 		log.Fatalf("Failed to create new index: %v", err)
 	}
@@ -477,9 +516,9 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 		field string
 		boost float64
 	}{
-		{"id", 10.0},
+		{"id", 3.0},
+		{"achternaam", 8.0},
 		{"voornaam", 5.0},
-		{"achternaam", 5.0},
 		{"tussenvoegsel", 3.0},
 		{"geboorteplaats", 3.0},
 		{"overlijdensplaats", 3.0},
@@ -497,8 +536,8 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 		field string
 		boost float64
 	}{
+		{"achternaam", 4.0},
 		{"voornaam", 2.0},
-		{"achternaam", 2.0},
 		{"geboorteplaats", 1.0},
 		{"overlijdensplaats", 1.0},
 	}
@@ -656,40 +695,46 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 					}
 
 					// Parse dates and convert to RFC3339 format for Bleve compatibility
-					geboortedatum, err := time.Parse("2006-01-02", strings.TrimSpace(record[4]))
-					if err != nil {
-						log.Printf("Worker %d: Error parsing geboortedatum '%s': %v", workerId, record[4], err)
-						// Set to zero time if parsing fails
-						geboortedatum = time.Time{}
+					var geboortedatum, overlijdensdatum time.Time
+
+					// Handle geboortedatum
+					geboortedatumStr := strings.TrimSpace(record[4])
+					if geboortedatumStr != "" {
+						parsed, err := time.Parse("2006-01-02", geboortedatumStr)
+						if err != nil {
+							log.Printf("Worker %d: Error parsing geboortedatum '%s': %v", workerId, geboortedatumStr, err)
+						} else {
+							geboortedatum = parsed
+						}
 					}
 
-					overlijdensdatum, err := time.Parse("2006-01-02", strings.TrimSpace(record[6]))
-					if err != nil {
-						log.Printf("Worker %d: Error parsing overlijdensdatum '%s': %v", workerId, record[6], err)
-						// Set to zero time if parsing fails
-						overlijdensdatum = time.Time{}
+					// Handle overlijdensdatum
+					overlijdensdatumStr := strings.TrimSpace(record[6])
+					if overlijdensdatumStr != "" {
+						parsed, err := time.Parse("2006-01-02", overlijdensdatumStr)
+						if err != nil {
+							log.Printf("Worker %d: Error parsing overlijdensdatum '%s': %v", workerId, overlijdensdatumStr, err)
+						} else {
+							overlijdensdatum = parsed
+						}
 					}
 
 					scan := strings.ToLower(record[8]) == "true"
 
-					// Only create record if at least one date is valid
-					if !geboortedatum.IsZero() || !overlijdensdatum.IsZero() {
-						bidprentje := &models.Bidprentje{
-							ID:                record[0],
-							Voornaam:          record[1],
-							Tussenvoegsel:     record[2],
-							Achternaam:        record[3],
-							Geboortedatum:     geboortedatum,
-							Geboorteplaats:    record[5],
-							Overlijdensdatum:  overlijdensdatum,
-							Overlijdensplaats: record[7],
-							Scan:              scan,
-						}
-
-						batch = append(batch, bidprentje)
-					} else {
-						log.Printf("Worker %d: Skipping record with invalid dates: %v", workerId, record)
+					// Create record regardless of dates - they can be empty
+					bidprentje := &models.Bidprentje{
+						ID:                record[0],
+						Voornaam:          record[1],
+						Tussenvoegsel:     record[2],
+						Achternaam:        record[3],
+						Geboortedatum:     geboortedatum,
+						Geboorteplaats:    record[5],
+						Overlijdensdatum:  overlijdensdatum,
+						Overlijdensplaats: record[7],
+						Scan:              scan,
 					}
+
+					batch = append(batch, bidprentje)
 				}
 
 				// Send batch along with its chunk number
