@@ -67,6 +67,11 @@
                         <input type="hidden" name="lang" value="{{.lang}}">
                         <button type="submit" class="btn btn-primary">{{.t.Search}}</button>
                     </div>
+                    <div class="form-text mt-2">{{.t.SearchHelp}}</div>
+                    <div class="form-check mt-2">
+                        <input type="checkbox" class="form-check-input" id="exactMatch" name="exact_match" {{if .exactMatch}}checked{{end}}>
+                        <label class="form-check-label" for="exactMatch">{{.t.ExactMatch}}</label>
+                    </div>
                 </form>
             </div>
         </div>

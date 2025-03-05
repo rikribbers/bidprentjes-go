@@ -55,6 +55,7 @@ type Translations struct {
 	Page                 string
 	Of                   string
 	ID                   string
+	ExactMatch           string
 }
 
 var translations = map[string]Translations{
@@ -101,6 +102,7 @@ var translations = map[string]Translations{
 		Page:                 "Page",
 		Of:                   "of",
 		ID:                   "ID",
+		ExactMatch:           "Exact matches only",
 	},
 	"nl": {
 		Search:               "Bidprentjes zoeken",
@@ -145,6 +147,7 @@ var translations = map[string]Translations{
 		Page:                 "Pagina",
 		Of:                   "van",
 		ID:                   "ID",
+		ExactMatch:           "Alleen exacte overeenkomsten",
 	},
 	"de": {
 		Search:               "Bidprentjes suchen",
@@ -189,6 +192,7 @@ var translations = map[string]Translations{
 		Page:                 "Seite",
 		Of:                   "von",
 		ID:                   "ID",
+		ExactMatch:           "Nur exakte Übereinstimmungen",
 	},
 }
 

@@ -318,6 +318,7 @@ func (h *Handler) UploadCSV(c *gin.Context) {
 func (h *Handler) WebSearch(c *gin.Context) {
 	query := c.Query("query")
 	lang := c.DefaultQuery("lang", "nl") // Default to Dutch
+	exactMatch := c.Query("exact_match") == "on"
 
 	// Parse page and pageSize from query parameters
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -332,9 +333,10 @@ func (h *Handler) WebSearch(c *gin.Context) {
 	var response *models.PaginatedResponse
 	if query != "" {
 		response = h.store.Search(models.SearchParams{
-			Query:    query,
-			Page:     page,
-			PageSize: pageSize,
+			Query:      query,
+			Page:       page,
+			PageSize:   pageSize,
+			ExactMatch: exactMatch,
 		})
 	} else {
 		response = h.store.List(page, pageSize)
@@ -351,6 +353,7 @@ func (h *Handler) WebSearch(c *gin.Context) {
 		"t":           t,
 		"title":       t.Search,
 		"description": t.SearchHelp,
+		"exactMatch":  exactMatch,
 	})
 }
 
