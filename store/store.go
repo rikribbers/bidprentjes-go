@@ -225,7 +225,12 @@ func (s *Store) rebuildDataFromIndex() error {
 }
 
 func (s *Store) Close() error {
-	// Final sync to GCS if we have a client
+	// First, ensure the index is properly closed
+	if err := s.index.Close(); err != nil {
+		log.Printf("Warning: Failed to close index: %v", err)
+	}
+
+	// Then try to sync to GCS if we have a client
 	if s.gcsClient != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -238,13 +243,13 @@ func (s *Store) Close() error {
 		}
 	}
 
-	if err := s.index.Close(); err != nil {
-		return fmt.Errorf("failed to close index: %v", err)
+	// Finally close the GCS client
+	if s.gcsClient != nil {
+		if err := s.gcsClient.Close(); err != nil {
+			log.Printf("Warning: Failed to close GCS client: %v", err)
+		}
 	}
 
-	if s.gcsClient != nil {
-		return s.gcsClient.Close()
-	}
 	return nil
 }
 
