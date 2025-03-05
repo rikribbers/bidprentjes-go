@@ -58,3 +58,28 @@ jobs:
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         target: final
+
+    - name: Update Terraform Cloud Variable
+      if: github.event_name != 'pull_request'
+      run: |
+        # Get the latest tag from Docker meta
+        DOCKER_TAG=${{ steps.meta.outputs.tags }}
+        
+        # Update the variable in Terraform Cloud
+        curl -X PATCH \
+          -H "Authorization: Bearer ${{ secrets.TF_TOKEN }}" \
+          -H "Content-Type: application/vnd.api+json" \
+          -d "{
+            \"data\": {
+              \"type\": \"vars\",
+              \"attributes\": {
+                \"key\": \"docker_image_tag\",
+                \"value\": \"$DOCKER_TAG\",
+                \"description\": \"Updated by GitHub Actions on $(date -u +'%Y-%m-%d %H:%M:%S UTC')\",
+                \"category\": \"terraform\",
+                \"hcl\": false,
+                \"sensitive\": false
+              }
+            }
+          }" \
+          "https://app.terraform.io/api/v2/workspaces/${{ secrets.TF_WORKSPACE_ID }}/vars/${{ secrets.TF_VAR_ID }}"

@@ -532,7 +532,8 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 			queries = append(queries, q)
 		}
 	} else {
-		// For fuzzy matches, use fuzzy queries for all fields
+		// For fuzzy matches, split query into terms and create fuzzy queries for each
+		terms := strings.Fields(queryStr)
 		fields := []struct {
 			field string
 			boost float64
@@ -545,13 +546,15 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 			{"overlijdensplaats", 3.0},
 		}
 
-		for _, f := range fields {
-			q := query.NewFuzzyQuery(queryStr)
-			q.SetField(f.field)
-			q.SetBoost(f.boost)
-			// Allow for 2 character differences in fuzzy matching
-			q.SetFuzziness(2)
-			queries = append(queries, q)
+		// Create a fuzzy query for each term in each field
+		for _, term := range terms {
+			for _, f := range fields {
+				q := query.NewFuzzyQuery(term)
+				q.SetField(f.field)
+				q.SetBoost(f.boost)
+				q.SetFuzziness(2)
+				queries = append(queries, q)
+			}
 		}
 	}
 
