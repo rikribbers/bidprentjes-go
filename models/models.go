@@ -85,9 +85,10 @@ func (b *Bidprentje) UnmarshalJSON(data []byte) error {
 }
 
 type SearchParams struct {
-	Query    string `form:"query"`
-	Page     int    `form:"page,default=1"`
-	PageSize int    `form:"page_size,default=25"`
+	Query      string `form:"query"`
+	Page       int    `form:"page,default=1"`
+	PageSize   int    `form:"page_size,default=25"`
+	ExactMatch bool   `form:"exact_match"`
 }
 
 type PaginatedResponse struct {

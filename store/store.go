@@ -511,43 +511,48 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 	// Create individual field queries
 	var queries []query.Query
 
-	// Add exact match queries with higher boost
-	exactFields := []struct {
-		field string
-		boost float64
-	}{
-		{"id", 3.0},
-		{"achternaam", 8.0},
-		{"voornaam", 5.0},
-		{"tussenvoegsel", 3.0},
-		{"geboorteplaats", 3.0},
-		{"overlijdensplaats", 3.0},
-	}
+	if params.ExactMatch {
+		// For exact matches, only use exact match queries with high boost
+		exactFields := []struct {
+			field string
+			boost float64
+		}{
+			{"id", 3.0},
+			{"achternaam", 8.0},
+			{"voornaam", 5.0},
+			{"tussenvoegsel", 3.0},
+			{"geboorteplaats", 3.0},
+			{"overlijdensplaats", 3.0},
+		}
 
-	for _, f := range exactFields {
-		q := query.NewMatchQuery(queryStr)
-		q.SetField(f.field)
-		q.SetBoost(f.boost)
-		queries = append(queries, q)
-	}
+		for _, f := range exactFields {
+			q := query.NewMatchQuery(queryStr)
+			q.SetField(f.field)
+			q.SetBoost(f.boost)
+			queries = append(queries, q)
+		}
+	} else {
+		// For fuzzy matches, use fuzzy queries for all fields
+		fields := []struct {
+			field string
+			boost float64
+		}{
+			{"id", 3.0},
+			{"achternaam", 8.0},
+			{"voornaam", 5.0},
+			{"tussenvoegsel", 3.0},
+			{"geboorteplaats", 3.0},
+			{"overlijdensplaats", 3.0},
+		}
 
-	// Add fuzzy match queries with lower boost
-	fuzzyFields := []struct {
-		field string
-		boost float64
-	}{
-		{"achternaam", 4.0},
-		{"voornaam", 2.0},
-		{"geboorteplaats", 1.0},
-		{"overlijdensplaats", 1.0},
-	}
-
-	for _, f := range fuzzyFields {
-		q := query.NewFuzzyQuery(queryStr)
-		q.SetField(f.field)
-		q.SetBoost(f.boost)
-		q.SetFuzziness(1)
-		queries = append(queries, q)
+		for _, f := range fields {
+			q := query.NewFuzzyQuery(queryStr)
+			q.SetField(f.field)
+			q.SetBoost(f.boost)
+			// Allow for 2 character differences in fuzzy matching
+			q.SetFuzziness(2)
+			queries = append(queries, q)
+		}
 	}
 
 	// Combine all queries with OR
