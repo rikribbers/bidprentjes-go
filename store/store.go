@@ -552,7 +552,7 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 				q := query.NewFuzzyQuery(term)
 				q.SetField(f.field)
 				q.SetBoost(f.boost)
-				q.SetFuzziness(2)
+				q.SetFuzziness(1)
 				queries = append(queries, q)
 			}
 		}
