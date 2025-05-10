@@ -96,7 +96,7 @@
                         <th>{{.t.BirthPlace}}</th>
                         <th>{{.t.DeathDate}}</th>
                         <th>{{.t.DeathPlace}}</th>
-                        <th>{{.t.HasScan}}</th>
+                        <!-- temp disable <th>{{.t.HasScan}}</th> -->
                     </tr>
                 </thead>
                 <tbody>
@@ -110,7 +110,7 @@
                         <td>{{.Geboorteplaats}}</td>
                         <td>{{.Overlijdensdatum.Format "2006-01-02"}}</td>
                         <td>{{.Overlijdensplaats}}</td>
-                        <td>{{if .Scan}}{{$.t.Yes}}{{else}}{{$.t.No}}{{end}}</td>
+                        <!-- <td>{{if .Scan}}{{$.t.Yes}}{{else}}{{$.t.No}}{{end}}</td> -->
                     </tr>
                     {{end}}
                 </tbody>
