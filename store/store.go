@@ -47,8 +47,10 @@ type BleveDocument struct {
 	Tussenvoegsel     string `json:"tussenvoegsel"`
 	Achternaam        string `json:"achternaam"`
 	Geboortedatum     string `json:"geboortedatum"`
+	Geboortejaar      string `json:"geboortejaar"`
 	Geboorteplaats    string `json:"geboorteplaats"`
 	Overlijdensdatum  string `json:"overlijdensdatum"`
+	Overlijdensjaar   string `json:"overlijdensjaar"`
 	Overlijdensplaats string `json:"overlijdensplaats"`
 	Scan              bool   `json:"scan"`
 }
@@ -416,8 +418,10 @@ func (s *Store) Create(b *models.Bidprentje) error {
 		Tussenvoegsel:     b.Tussenvoegsel,
 		Achternaam:        b.Achternaam,
 		Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
+		Geboortejaar:      b.Geboortedatum.Format("2006"),
 		Geboorteplaats:    b.Geboorteplaats,
 		Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
+		Overlijdensjaar:   b.Overlijdensdatum.Format("2006"),
 		Overlijdensplaats: b.Overlijdensplaats,
 		Scan:              b.Scan,
 	}
@@ -446,8 +450,10 @@ func (s *Store) Update(b *models.Bidprentje) error {
 		Tussenvoegsel:     b.Tussenvoegsel,
 		Achternaam:        b.Achternaam,
 		Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
+		Geboortejaar:      b.Geboortedatum.Format("2006"),
 		Geboorteplaats:    b.Geboorteplaats,
 		Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
+		Overlijdensjaar:   b.Overlijdensdatum.Format("2006"),
 		Overlijdensplaats: b.Overlijdensplaats,
 		Scan:              b.Scan,
 	}
@@ -517,12 +523,16 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 			field string
 			boost float64
 		}{
-			{"id", 3.0},
+			{"id", 2.0},
 			{"achternaam", 8.0},
 			{"voornaam", 5.0},
 			{"tussenvoegsel", 3.0},
 			{"geboorteplaats", 3.0},
 			{"overlijdensplaats", 3.0},
+			{"overlijdensdatum", 3.0},
+			{"geboortedatum", 3.0},
+			{"overlijdensjaar", 3.0},
+			{"geboortejaar", 3.0},
 		}
 
 		for _, f := range exactFields {
@@ -538,12 +548,16 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 			field string
 			boost float64
 		}{
-			{"id", 3.0},
+			{"id", 2.0},
 			{"achternaam", 8.0},
 			{"voornaam", 5.0},
 			{"tussenvoegsel", 3.0},
 			{"geboorteplaats", 3.0},
 			{"overlijdensplaats", 3.0},
+			{"overlijdensdatum", 3.0},
+			{"geboortedatum", 3.0},
+			{"overlijdensjaar", 3.0},
+			{"geboortejaar", 3.0},
 		}
 
 		// Create a fuzzy query for each term in each field
@@ -615,8 +629,10 @@ func (s *Store) BatchCreate(bidprentjes []*models.Bidprentje) error {
 			Tussenvoegsel:     b.Tussenvoegsel,
 			Achternaam:        b.Achternaam,
 			Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
+			Geboortejaar:      b.Geboortedatum.Format("2006"),
 			Geboorteplaats:    b.Geboorteplaats,
 			Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
+			Overlijdensjaar:   b.Geboortedatum.Format("2006"),
 			Overlijdensplaats: b.Overlijdensplaats,
 			Scan:              b.Scan,
 		}
