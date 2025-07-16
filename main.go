@@ -105,8 +105,6 @@ func main() {
 
 	// Keep only search and upload web endpoints
 	r.GET("/search", handler.WebSearch)
-	r.GET("/upload", handler.WebUpload)
-	r.POST("/upload", handler.UploadCSV)
 
 	// Create a server with timeouts
 	srv := &http.Server{
