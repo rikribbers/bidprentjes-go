@@ -122,7 +122,7 @@
             <ul class="pagination justify-content-center">
                 {{if gt .data.Page 1}}
                 <li class="page-item">
-                    <a class="page-link" href="/search?page={{subtract .data.Page 1}}&query={{.searchQuery}}&lang={{.lang}}">&laquo;</a>
+                    <a class="page-link" href="/search?page={{subtract .data.Page 1}}&query={{.searchQuery}}&exact_match={{if .exactMatch}}on{{end}}&lang={{.lang}}">&laquo;</a>
                 </li>
                 {{end}}
 
@@ -131,7 +131,7 @@
                 
                 <!-- First page -->
                 <li class="page-item {{if eq 1 $currentPage}}active{{end}}">
-                    <a class="page-link" href="/search?page=1&query={{$.searchQuery}}&lang={{$.lang}}">1</a>
+                    <a class="page-link" href="/search?page=1&query={{$.searchQuery}}&exact_match={{if $.exactMatch}}on{{end}}&lang={{$.lang}}">1</a>
                 </li>
 
                 <!-- Left ellipsis -->
@@ -146,7 +146,7 @@
                     {{$page := add (subtract $currentPage 1) $i}}
                     {{if and (gt $page 1) (lt $page $totalPages)}}
                         <li class="page-item {{if eq $page $currentPage}}active{{end}}">
-                            <a class="page-link" href="/search?page={{$page}}&query={{$.searchQuery}}&lang={{$.lang}}">{{$page}}</a>
+                            <a class="page-link" href="/search?page={{$page}}&query={{$.searchQuery}}&exact_match={{if $.exactMatch}}on{{end}}&lang={{$.lang}}">{{$page}}</a>
                         </li>
                     {{end}}
                 {{end}}
@@ -161,13 +161,13 @@
                 <!-- Last page -->
                 {{if gt $totalPages 1}}
                 <li class="page-item {{if eq $totalPages $currentPage}}active{{end}}">
-                    <a class="page-link" href="/search?page={{$totalPages}}&query={{$.searchQuery}}&lang={{$.lang}}">{{$totalPages}}</a>
+                    <a class="page-link" href="/search?page={{$totalPages}}&query={{$.searchQuery}}&exact_match={{if $.exactMatch}}on{{end}}&lang={{$.lang}}">{{$totalPages}}</a>
                 </li>
                 {{end}}
 
                 {{if lt .data.Page $totalPages}}
                 <li class="page-item">
-                    <a class="page-link" href="/search?page={{add .data.Page 1}}&query={{.searchQuery}}&lang={{.lang}}">&raquo;</a>
+                    <a class="page-link" href="/search?page={{add .data.Page 1}}&query={{.searchQuery}}&exact_match={{if $.exactMatch}}on{{end}}&lang={{.lang}}">&raquo;</a>
                 </li>
                 {{end}}
             </ul>
