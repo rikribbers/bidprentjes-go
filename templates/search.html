@@ -127,7 +127,7 @@
                 {{end}}
 
                 {{$currentPage := .data.Page}}
-                {{$totalPages := divide .data.TotalCount .data.PageSize}}
+                {{$totalPages := add (divide .data.TotalCount .data.PageSize) 1}}
                 
                 <!-- First page -->
                 <li class="page-item {{if eq 1 $currentPage}}active{{end}}">
@@ -165,7 +165,7 @@
                 </li>
                 {{end}}
 
-                {{if le .data.Page $totalPages}}
+                {{if lt .data.Page $totalPages}}
                 <li class="page-item">
                     <a class="page-link" href="/search?page={{add .data.Page 1}}&query={{.searchQuery}}&exact_match={{if $.exactMatch}}on{{end}}&lang={{.lang}}">&raquo;</a>
                 </li>
