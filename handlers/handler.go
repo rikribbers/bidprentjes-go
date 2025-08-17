@@ -28,90 +28,6 @@ func NewHandler(store *store.Store) *Handler {
 	}
 }
 
-func (h *Handler) CreateBidprentje(c *gin.Context) {
-	var bidprentje models.Bidprentje
-	if err := c.BindJSON(&bidprentje); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Validate required fields
-	if bidprentje.ID == "" || bidprentje.Voornaam == "" || bidprentje.Achternaam == "" ||
-		bidprentje.Geboorteplaats == "" || bidprentje.Overlijdensplaats == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
-		return
-	}
-
-	if err := h.store.Create(&bidprentje); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create bidprentje"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, bidprentje)
-}
-
-func (h *Handler) GetBidprentje(c *gin.Context) {
-	id := c.Param("id")
-	bidprentje, exists := h.store.Get(id)
-	if !exists {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Bidprentje not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, bidprentje)
-}
-
-func (h *Handler) UpdateBidprentje(c *gin.Context) {
-	id := c.Param("id")
-
-	var bidprentje models.Bidprentje
-	if err := c.BindJSON(&bidprentje); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	bidprentje.ID = id
-
-	if err := h.store.Update(&bidprentje); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bidprentje"})
-		return
-	}
-
-	c.JSON(http.StatusOK, bidprentje)
-}
-
-func (h *Handler) DeleteBidprentje(c *gin.Context) {
-	id := c.Param("id")
-	if err := h.store.Delete(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Bidprentje deleted successfully"})
-}
-
-func (h *Handler) ListBidprentjes(c *gin.Context) {
-	var params models.SearchParams
-	if err := c.ShouldBindQuery(&params); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	response := h.store.List(params.Page, params.PageSize)
-	c.JSON(http.StatusOK, response)
-}
-
-func (h *Handler) SearchBidprentjes(c *gin.Context) {
-	var params models.SearchParams
-	if err := c.ShouldBindJSON(&params); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	response := h.store.Search(params)
-	c.JSON(http.StatusOK, response)
-}
-
 // ProcessCSVUpload handles the processing of uploaded CSV files
 func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 	startTime := time.Now()
@@ -281,40 +197,6 @@ func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 	return totalRecords, nil
 }
 
-func (h *Handler) UploadCSV(c *gin.Context) {
-	// Return 404 if there's no GCP connectivity
-	if !h.store.HasGCPConnectivity() {
-		c.Status(http.StatusNotFound)
-		return
-	}
-
-	file, err := c.FormFile("file")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
-		return
-	}
-
-	// Open the file
-	src, err := file.Open()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open file"})
-		return
-	}
-	defer src.Close()
-
-	// Process the CSV file
-	count, err := h.ProcessCSVUpload(src)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to process CSV: %v", err)})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("Successfully processed %d records", count),
-		"count":   count,
-	})
-}
-
 func (h *Handler) WebSearch(c *gin.Context) {
 	query := c.Query("query")
 	lang := c.DefaultQuery("lang", "nl") // Default to Dutch
@@ -354,24 +236,5 @@ func (h *Handler) WebSearch(c *gin.Context) {
 		"title":       t.Search,
 		"description": t.SearchHelp,
 		"exactMatch":  exactMatch,
-	})
-}
-
-func (h *Handler) WebUpload(c *gin.Context) {
-	// Return 404 if there's no GCP connectivity
-	if !h.store.HasGCPConnectivity() {
-		c.Status(http.StatusNotFound)
-		return
-	}
-
-	lang := c.DefaultQuery("lang", "nl") // Default to Dutch
-	t := translations.GetTranslation(lang)
-	languages := translations.SupportedLanguages
-
-	c.HTML(http.StatusOK, "upload.html", gin.H{
-		"lang":      lang,
-		"languages": languages,
-		"t":         t,
-		"title":     t.Upload,
 	})
 }

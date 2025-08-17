@@ -44,7 +44,6 @@ type Store struct {
 type BleveDocument struct {
 	ID                string `json:"id"`
 	Voornaam          string `json:"voornaam"`
-	Tussenvoegsel     string `json:"tussenvoegsel"`
 	Achternaam        string `json:"achternaam"`
 	Geboortedatum     string `json:"geboortedatum"`
 	Geboortejaar      string `json:"geboortejaar"`
@@ -52,7 +51,6 @@ type BleveDocument struct {
 	Overlijdensdatum  string `json:"overlijdensdatum"`
 	Overlijdensjaar   string `json:"overlijdensjaar"`
 	Overlijdensplaats string `json:"overlijdensplaats"`
-	Scan              bool   `json:"scan"`
 }
 
 func NewStore(ctx context.Context, bucketName string) *Store {
@@ -181,14 +179,11 @@ func (s *Store) createNewIndex() error {
 	docMapping.AddFieldMappingsAt("_id", textFieldMapping)
 	docMapping.AddFieldMappingsAt("id", textFieldMapping)
 	docMapping.AddFieldMappingsAt("voornaam", textFieldMapping)
-	docMapping.AddFieldMappingsAt("tussenvoegsel", textFieldMapping)
 	docMapping.AddFieldMappingsAt("achternaam", textFieldMapping)
 	docMapping.AddFieldMappingsAt("geboorteplaats", textFieldMapping)
 	docMapping.AddFieldMappingsAt("overlijdensplaats", textFieldMapping)
 	docMapping.AddFieldMappingsAt("geboortedatum", textFieldMapping)
 	docMapping.AddFieldMappingsAt("overlijdensdatum", textFieldMapping)
-	docMapping.AddFieldMappingsAt("scan", boolFieldMapping)
-
 	indexMapping.DefaultMapping = docMapping
 	indexMapping.DefaultAnalyzer = "bidprentje"
 
@@ -221,7 +216,7 @@ func (s *Store) rebuildDataFromIndex() error {
 	// Create a search request that matches all documents
 	matchAll := bleve.NewMatchAllQuery()
 	searchRequest := bleve.NewSearchRequest(matchAll)
-	searchRequest.Size = 100000 // Adjust this number based on your expected maximum documents
+	searchRequest.Size = 150000 // Adjust this number based on your expected maximum documents
 	searchRequest.Fields = []string{"*"}
 
 	results, err := s.index.Search(searchRequest)
@@ -415,7 +410,6 @@ func (s *Store) Create(b *models.Bidprentje) error {
 	doc := BleveDocument{
 		ID:                b.ID,
 		Voornaam:          b.Voornaam,
-		Tussenvoegsel:     b.Tussenvoegsel,
 		Achternaam:        b.Achternaam,
 		Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
 		Geboortejaar:      b.Geboortedatum.Format("2006"),
@@ -423,7 +417,6 @@ func (s *Store) Create(b *models.Bidprentje) error {
 		Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
 		Overlijdensjaar:   b.Overlijdensdatum.Format("2006"),
 		Overlijdensplaats: b.Overlijdensplaats,
-		Scan:              b.Scan,
 	}
 
 	return s.index.Index(b.ID, doc)
@@ -447,7 +440,6 @@ func (s *Store) Update(b *models.Bidprentje) error {
 	doc := BleveDocument{
 		ID:                b.ID,
 		Voornaam:          b.Voornaam,
-		Tussenvoegsel:     b.Tussenvoegsel,
 		Achternaam:        b.Achternaam,
 		Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
 		Geboortejaar:      b.Geboortedatum.Format("2006"),
@@ -455,7 +447,6 @@ func (s *Store) Update(b *models.Bidprentje) error {
 		Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
 		Overlijdensjaar:   b.Overlijdensdatum.Format("2006"),
 		Overlijdensplaats: b.Overlijdensplaats,
-		Scan:              b.Scan,
 	}
 
 	return s.index.Index(b.ID, doc)
@@ -526,13 +517,12 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 			{"id", 2.0},
 			{"achternaam", 8.0},
 			{"voornaam", 5.0},
-			{"tussenvoegsel", 3.0},
 			{"geboorteplaats", 3.0},
 			{"overlijdensplaats", 3.0},
 			{"overlijdensdatum", 3.0},
 			{"geboortedatum", 3.0},
-			{"overlijdensjaar", 3.0},
-			{"geboortejaar", 3.0},
+			{"overlijdensjaar", 8.0},
+			{"geboortejaar", 8.0},
 		}
 
 		for _, f := range exactFields {
@@ -551,13 +541,12 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 			{"id", 2.0},
 			{"achternaam", 8.0},
 			{"voornaam", 5.0},
-			{"tussenvoegsel", 3.0},
 			{"geboorteplaats", 3.0},
 			{"overlijdensplaats", 3.0},
 			{"overlijdensdatum", 3.0},
 			{"geboortedatum", 3.0},
-			{"overlijdensjaar", 3.0},
-			{"geboortejaar", 3.0},
+			{"overlijdensjaar", 8.0},
+			{"geboortejaar", 8.0},
 		}
 
 		// Create a fuzzy query for each term in each field
@@ -626,7 +615,6 @@ func (s *Store) BatchCreate(bidprentjes []*models.Bidprentje) error {
 		doc := BleveDocument{
 			ID:                b.ID,
 			Voornaam:          b.Voornaam,
-			Tussenvoegsel:     b.Tussenvoegsel,
 			Achternaam:        b.Achternaam,
 			Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
 			Geboortejaar:      b.Geboortedatum.Format("2006"),
@@ -634,7 +622,6 @@ func (s *Store) BatchCreate(bidprentjes []*models.Bidprentje) error {
 			Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
 			Overlijdensjaar:   b.Geboortedatum.Format("2006"),
 			Overlijdensplaats: b.Overlijdensplaats,
-			Scan:              b.Scan,
 		}
 
 		if err := batch.Index(b.ID, doc); err != nil {
