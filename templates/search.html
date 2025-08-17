@@ -165,7 +165,7 @@
                 </li>
                 {{end}}
 
-                {{if lt .data.Page $totalPages}}
+                {{if le .data.Page $totalPages}}
                 <li class="page-item">
                     <a class="page-link" href="/search?page={{add .data.Page 1}}&query={{.searchQuery}}&exact_match={{if $.exactMatch}}on{{end}}&lang={{.lang}}">&raquo;</a>
                 </li>
