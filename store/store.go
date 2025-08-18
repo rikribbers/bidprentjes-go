@@ -45,6 +45,7 @@ type BleveDocument struct {
 	ID                string `json:"id"`
 	Voornaam          string `json:"voornaam"`
 	Achternaam        string `json:"achternaam"`
+	Voorvoegsel       string `json:"voorvoegsel"`
 	Geboortedatum     string `json:"geboortedatum"`
 	Geboortejaar      string `json:"geboortejaar"`
 	Geboorteplaats    string `json:"geboorteplaats"`
@@ -232,10 +233,11 @@ func (s *Store) rebuildDataFromIndex() error {
 
 	// Rebuild data from search results
 	for _, hit := range results.Hits {
+		log.Printf("%s, %s", hit.ID, hit.Fields)
 		b := &models.Bidprentje{
 			ID:                hit.ID,
 			Voornaam:          hit.Fields["voornaam"].(string),
-			Tussenvoegsel:     hit.Fields["tussenvoegsel"].(string),
+			Voorvoegsel:       hit.Fields["voorvoegsel"].(string),
 			Achternaam:        hit.Fields["achternaam"].(string),
 			Geboorteplaats:    hit.Fields["geboorteplaats"].(string),
 			Overlijdensplaats: hit.Fields["overlijdensplaats"].(string),
@@ -411,6 +413,7 @@ func (s *Store) Create(b *models.Bidprentje) error {
 		ID:                b.ID,
 		Voornaam:          b.Voornaam,
 		Achternaam:        b.Achternaam,
+		Voorvoegsel:       b.Voorvoegsel,
 		Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
 		Geboortejaar:      b.Geboortedatum.Format("2006"),
 		Geboorteplaats:    b.Geboorteplaats,
@@ -736,7 +739,7 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 					bidprentje := &models.Bidprentje{
 						ID:                record[0],
 						Voornaam:          record[1],
-						Tussenvoegsel:     record[2],
+						Voorvoegsel:       record[2],
 						Achternaam:        record[3],
 						Geboortedatum:     geboortedatum,
 						Geboorteplaats:    record[5],

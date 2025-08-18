@@ -8,7 +8,7 @@ import (
 type Bidprentje struct {
 	ID                string    `json:"id"`
 	Voornaam          string    `json:"voornaam"`
-	Tussenvoegsel     string    `json:"tussenvoegsel"`
+	Voorvoegsel       string    `json:"voorvoegsel"`
 	Achternaam        string    `json:"achternaam"`
 	Geboortedatum     time.Time `json:"geboortedatum"`
 	Geboorteplaats    string    `json:"geboorteplaats"`
@@ -22,7 +22,7 @@ func (b Bidprentje) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
 		ID                string `json:"id"`
 		Voornaam          string `json:"voornaam"`
-		Tussenvoegsel     string `json:"tussenvoegsel"`
+		Voorvoegsel       string `json:"voorvoegsel"`
 		Achternaam        string `json:"achternaam"`
 		Geboortedatum     string `json:"geboortedatum"`
 		Geboorteplaats    string `json:"geboorteplaats"`
@@ -32,7 +32,7 @@ func (b Bidprentje) MarshalJSON() ([]byte, error) {
 	}{
 		ID:                b.ID,
 		Voornaam:          b.Voornaam,
-		Tussenvoegsel:     b.Tussenvoegsel,
+		Voorvoegsel:       b.Voorvoegsel,
 		Achternaam:        b.Achternaam,
 		Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
 		Geboorteplaats:    b.Geboorteplaats,
@@ -47,7 +47,7 @@ func (b *Bidprentje) UnmarshalJSON(data []byte) error {
 	aux := &struct {
 		ID                string `json:"id"`
 		Voornaam          string `json:"voornaam"`
-		Tussenvoegsel     string `json:"tussenvoegsel"`
+		Voorvoegsel       string `json:"voorvoegsel"`
 		Achternaam        string `json:"achternaam"`
 		Geboortedatum     string `json:"geboortedatum"`
 		Geboorteplaats    string `json:"geboorteplaats"`
@@ -62,7 +62,7 @@ func (b *Bidprentje) UnmarshalJSON(data []byte) error {
 
 	b.ID = aux.ID
 	b.Voornaam = aux.Voornaam
-	b.Tussenvoegsel = aux.Tussenvoegsel
+	b.Voorvoegsel = aux.Voorvoegsel
 	b.Achternaam = aux.Achternaam
 	b.Geboorteplaats = aux.Geboorteplaats
 	b.Overlijdensplaats = aux.Overlijdensplaats

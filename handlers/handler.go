@@ -129,7 +129,7 @@ func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 					bidprentje := &models.Bidprentje{
 						ID:                record[0],
 						Voornaam:          record[1],
-						Tussenvoegsel:     record[2],
+						Voorvoegsel:       record[2],
 						Achternaam:        record[3],
 						Geboortedatum:     geboortedatum,
 						Geboorteplaats:    record[5],
