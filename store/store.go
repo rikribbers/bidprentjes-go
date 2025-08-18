@@ -182,10 +182,13 @@ func (s *Store) createNewIndex() error {
 	docMapping.AddFieldMappingsAt("id", textFieldMapping)
 	docMapping.AddFieldMappingsAt("voornaam", textFieldMapping)
 	docMapping.AddFieldMappingsAt("achternaam", textFieldMapping)
+	docMapping.AddFieldMappingsAt("voorvoegsel", textFieldMapping)
 	docMapping.AddFieldMappingsAt("geboorteplaats", textFieldMapping)
 	docMapping.AddFieldMappingsAt("overlijdensplaats", textFieldMapping)
 	docMapping.AddFieldMappingsAt("geboortedatum", textFieldMapping)
 	docMapping.AddFieldMappingsAt("overlijdensdatum", textFieldMapping)
+	docMapping.AddFieldMappingsAt("scan", boolFieldMapping)
+	
 	indexMapping.DefaultMapping = docMapping
 	indexMapping.DefaultAnalyzer = "bidprentje"
 
@@ -218,7 +221,7 @@ func (s *Store) rebuildDataFromIndex() error {
 	// Create a search request that matches all documents
 	matchAll := bleve.NewMatchAllQuery()
 	searchRequest := bleve.NewSearchRequest(matchAll)
-	searchRequest.Size = 150000 // Adjust this number based on your expected maximum documents
+	searchRequest.Size = 250000 // Adjust this number based on your expected maximum documents
 	searchRequest.Fields = []string{"*"}
 
 	results, err := s.index.Search(searchRequest)
@@ -231,17 +234,18 @@ func (s *Store) rebuildDataFromIndex() error {
 	defer s.mu.Unlock()
 
 	s.data = make(map[string]*models.Bidprentje)
+	log.Println("nof hits: %s", len(results.Hits))
 
 	// Rebuild data from search results
 	for _, hit := range results.Hits {
 		b := &models.Bidprentje{
 			ID:                hit.ID,
-			Voornaam:          hit.Fields["voornaam"].(string),
-			Voorvoegsel:       hit.Fields["voorvoegsel"].(string),
-			Achternaam:        hit.Fields["achternaam"].(string),
-			Geboorteplaats:    hit.Fields["geboorteplaats"].(string),
-			Overlijdensplaats: hit.Fields["overlijdensplaats"].(string),
-			Scan:              hit.Fields["scan"].(bool),
+			Voornaam:          getStringField(hit.Fields, "voornaam"),
+			Voorvoegsel:       getStringField(hit.Fields, "voorvoegsel"),
+			Achternaam:        getStringField(hit.Fields, "achternaam"),
+			Geboorteplaats:    getStringField(hit.Fields, "geboorteplaats"),
+			Overlijdensplaats: getStringField(hit.Fields, "overlijdensplaats"),
+			Scan:              getBoolField(hit.Fields, "scan"),
 		}
 
 		// Parse dates
@@ -912,4 +916,20 @@ func (s *Store) HasValidIndex() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.hasValidIndex
+}
+
+// Helper function to safely get a string field
+func getStringField(fields map[string]interface{}, key string) string {
+	if val, ok := fields[key].(string); ok {
+		return val
+	}
+	return "" // Return an empty string if the field is nil or not a string
+}
+
+// Helper function to safely get a boolean field
+func getBoolField(fields map[string]interface{}, key string) bool {
+	if val, ok := fields[key].(bool); ok {
+		return val
+	}
+	return false // Return false if the field is nil or not a bool
 }
