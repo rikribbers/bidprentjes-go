@@ -99,8 +99,17 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 				log.Printf("Failed to create new index: %v", err)
 			} else {
 				if _, err := s.ProcessCSVUpload(reader); err != nil {
-					log.Printf("Failed to process GCP CSV: %v", err)
+					log.Printf("Failed to process GCP CSV file: %v", err)
 				} else {
+					// Create a backup of the index after processing
+					log.Printf("Creating backup of the index...")
+					// sleep first to let all the flushes go through
+					time.Sleep(20*time.Second)
+					if err := s.BackupIndex(ctx); err != nil {
+						log.Printf("Warning: Failed to create immediate index backup: %v", err)
+					} else {
+						log.Printf("Successfully created immediate index backup")
+					}
 					s.hasValidIndex = true
 					return s
 				}
@@ -188,7 +197,7 @@ func (s *Store) createNewIndex() error {
 	docMapping.AddFieldMappingsAt("geboortedatum", textFieldMapping)
 	docMapping.AddFieldMappingsAt("overlijdensdatum", textFieldMapping)
 	docMapping.AddFieldMappingsAt("scan", boolFieldMapping)
-	
+
 	indexMapping.DefaultMapping = docMapping
 	indexMapping.DefaultAnalyzer = "bidprentje"
 
@@ -234,7 +243,7 @@ func (s *Store) rebuildDataFromIndex() error {
 	defer s.mu.Unlock()
 
 	s.data = make(map[string]*models.Bidprentje)
-	log.Println("nof hits: %s", len(results.Hits))
+	log.Println("nof hits: ", len(results.Hits))
 
 	// Rebuild data from search results
 	for _, hit := range results.Hits {
@@ -905,6 +914,8 @@ func (s *Store) uploadIndex(ctx context.Context) error {
 
 // BackupIndex creates an immediate backup of the index to GCP
 func (s *Store) BackupIndex(ctx context.Context) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.gcsClient == nil {
 		return fmt.Errorf("no GCP connectivity available")
 	}
