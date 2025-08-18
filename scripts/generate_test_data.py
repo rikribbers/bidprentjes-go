@@ -27,8 +27,8 @@ voornamen = [
     "Kim", "Laura", "Marit", "Nienke", "Olivia", "Puck", "Quinty", "Robin", "Sarah", "Tessa"
 ]
 
-tussenvoegsels = ["van", "de", "van der", "van den", "", "ter", "van de", "", "van", "de", 
-                  "den", "der", "'t", "ten", "te", "op de", "bij de", "aan de", "in de", "onder de"]
+voorvoegsels = ["van", "de", "van der", "van den", "", "ter", "van de", "", "van", "de", 
+                  "den", "der", "'t", "ten", "te", "op de", "bij de", "aan de", "in de", "onder de",""]
 
 achternamen = [
     "Berg", "Vries", "Bakker", "Janssen", "Visser", "Molen", "Bosch", "Groot", "Klein", "Smit",
@@ -78,7 +78,7 @@ with open('bidprentjes.csv', 'w', newline='') as f:
     writer = csv.writer(f)
     
     # Write header
-    writer.writerow(['id', 'voornaam', 'tussenvoegsel', 'achternaam', 'geboortedatum', 
+    writer.writerow(['id', 'voornaam', 'voorvoegsel', 'achternaam', 'geboortedatum', 
                     'geboorteplaats', 'overlijdensdatum', 'overlijdensplaats', 'scan'])
     
     # Generate 50000 entries
@@ -89,7 +89,7 @@ with open('bidprentjes.csv', 'w', newline='') as f:
         row = [
             str(i),  # Use sequential number as ID
             random.choice(voornamen),
-            random.choice(tussenvoegsels),
+            random.choice(voorvoegsels),
             random.choice(achternamen),
             birth_date.strftime('%Y-%m-%d'),
             random.choice(plaatsen),
