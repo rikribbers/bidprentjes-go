@@ -52,6 +52,7 @@ type BleveDocument struct {
 	Overlijdensdatum  string `json:"overlijdensdatum"`
 	Overlijdensjaar   string `json:"overlijdensjaar"`
 	Overlijdensplaats string `json:"overlijdensplaats"`
+	Scan              bool   `json:"scan"`
 }
 
 func NewStore(ctx context.Context, bucketName string) *Store {
@@ -233,7 +234,6 @@ func (s *Store) rebuildDataFromIndex() error {
 
 	// Rebuild data from search results
 	for _, hit := range results.Hits {
-		log.Printf("%s, %s", hit.ID, hit.Fields)
 		b := &models.Bidprentje{
 			ID:                hit.ID,
 			Voornaam:          hit.Fields["voornaam"].(string),
@@ -420,6 +420,7 @@ func (s *Store) Create(b *models.Bidprentje) error {
 		Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
 		Overlijdensjaar:   b.Overlijdensdatum.Format("2006"),
 		Overlijdensplaats: b.Overlijdensplaats,
+		Scan:              b.Scan,
 	}
 
 	return s.index.Index(b.ID, doc)
