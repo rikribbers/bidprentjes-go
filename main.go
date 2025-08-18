@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"bidprentjes-api/cloud"
 	"bidprentjes-api/handlers"
 	"bidprentjes-api/store"
 
@@ -34,43 +33,6 @@ func main() {
 
 	// Initialize handlers with store
 	handler := handlers.NewHandler(store)
-
-	// If we have a bucket name and no valid index was restored, try processing CSV
-	if bucketName != "" && !store.HasValidIndex() {
-		storageClient, err := cloud.NewStorageClient(ctx, bucketName)
-		if err != nil {
-			log.Printf("Warning: Failed to initialize GCP storage client: %v", err)
-		} else {
-			defer storageClient.Close()
-
-			// Try to download the CSV file
-			reader, err := storageClient.DownloadFile(ctx, "data/bidprentjes.csv")
-			if err != nil {
-				log.Printf("Warning: Failed to download bidprentjes.csv: %v", err)
-			} else {
-				// Process the CSV file
-				count, err := handler.ProcessCSVUpload(reader)
-				if err != nil {
-					log.Printf("Warning: Failed to process CSV file: %v", err)
-				} else {
-					log.Printf("Successfully loaded %d records from GCP storage", count)
-
-					// Move the processed CSV file
-					if err := storageClient.MoveFile(ctx, "data/bidprentjes.csv", "data/processed/bidprentjes.csv."+time.Now().Format("20060102150405")); err != nil {
-						log.Printf("Warning: Failed to move processed CSV file: %v", err)
-					}
-
-					// Create immediate backup of the index after processing
-					log.Printf("Creating immediate backup of the index...")
-					if err := store.BackupIndex(ctx); err != nil {
-						log.Printf("Warning: Failed to create immediate index backup: %v", err)
-					} else {
-						log.Printf("Successfully created immediate index backup")
-					}
-				}
-			}
-		}
-	}
 
 	// Create Gin router
 	r := gin.Default()
