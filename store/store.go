@@ -639,6 +639,7 @@ func (s *Store) BatchCreate(bidprentjes []*models.Bidprentje) error {
 			Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
 			Overlijdensjaar:   b.Geboortedatum.Format("2006"),
 			Overlijdensplaats: b.Overlijdensplaats,
+			Scan:              b.Scan,
 		}
 
 		if err := batch.Index(b.ID, doc); err != nil {
