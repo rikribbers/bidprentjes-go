@@ -49,7 +49,7 @@ def clean_field(field):
 with open('bidprentjes.csv', 'w') as output_file:
     i = 0
     for row in db.ws(ws='website').rows:
-        # id,geboren,overleden,achternaam,geboorteplaats,voorvoegsel,voornaam,rustplaats,scan
+        # id,geboren,overleden,achternaam,geboorteplaats,tussenvoegsel,voornaam,rustplaats,scan
 
         id = row[0]
         result = str(id) + ","
@@ -58,8 +58,8 @@ with open('bidprentjes.csv', 'w') as output_file:
         result = result + clean_field(voornaam)
         result = result + ','
 
-        voorvoegsel = row[5]
-        result = result + clean_field(voorvoegsel)
+        tussenvoegsel = row[5]
+        result = result + clean_field(tussenvoegsel)
         result = result + ','
 
         achternaam = row[3]
