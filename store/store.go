@@ -45,7 +45,7 @@ type BleveDocument struct {
 	ID                string `json:"id"`
 	Voornaam          string `json:"voornaam"`
 	Achternaam        string `json:"achternaam"`
-	Voorvoegsel       string `json:"voorvoegsel"`
+	Tussenvoegsel     string `json:"tussenvoegsel"`
 	Geboortedatum     string `json:"geboortedatum"`
 	Geboortejaar      string `json:"geboortejaar"`
 	Geboorteplaats    string `json:"geboorteplaats"`
@@ -104,7 +104,7 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 					// Create a backup of the index after processing
 					log.Printf("Creating backup of the index...")
 					// sleep first to let all the flushes go through
-					time.Sleep(20*time.Second)
+					time.Sleep(20 * time.Second)
 					if err := s.BackupIndex(ctx); err != nil {
 						log.Printf("Warning: Failed to create immediate index backup: %v", err)
 					} else {
@@ -191,7 +191,7 @@ func (s *Store) createNewIndex() error {
 	docMapping.AddFieldMappingsAt("id", textFieldMapping)
 	docMapping.AddFieldMappingsAt("voornaam", textFieldMapping)
 	docMapping.AddFieldMappingsAt("achternaam", textFieldMapping)
-	docMapping.AddFieldMappingsAt("voorvoegsel", textFieldMapping)
+	docMapping.AddFieldMappingsAt("tussenvoegsel", textFieldMapping)
 	docMapping.AddFieldMappingsAt("geboorteplaats", textFieldMapping)
 	docMapping.AddFieldMappingsAt("overlijdensplaats", textFieldMapping)
 	docMapping.AddFieldMappingsAt("geboortedatum", textFieldMapping)
@@ -250,7 +250,7 @@ func (s *Store) rebuildDataFromIndex() error {
 		b := &models.Bidprentje{
 			ID:                hit.ID,
 			Voornaam:          getStringField(hit.Fields, "voornaam"),
-			Voorvoegsel:       getStringField(hit.Fields, "voorvoegsel"),
+			Tussenvoegsel:     getStringField(hit.Fields, "tussenvoegsel"),
 			Achternaam:        getStringField(hit.Fields, "achternaam"),
 			Geboorteplaats:    getStringField(hit.Fields, "geboorteplaats"),
 			Overlijdensplaats: getStringField(hit.Fields, "overlijdensplaats"),
@@ -426,7 +426,7 @@ func (s *Store) Create(b *models.Bidprentje) error {
 		ID:                b.ID,
 		Voornaam:          b.Voornaam,
 		Achternaam:        b.Achternaam,
-		Voorvoegsel:       b.Voorvoegsel,
+		Tussenvoegsel:     b.Tussenvoegsel,
 		Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
 		Geboortejaar:      b.Geboortedatum.Format("2006"),
 		Geboorteplaats:    b.Geboorteplaats,
@@ -754,7 +754,7 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 					bidprentje := &models.Bidprentje{
 						ID:                record[0],
 						Voornaam:          record[1],
-						Voorvoegsel:       record[2],
+						Tussenvoegsel:     record[2],
 						Achternaam:        record[3],
 						Geboortedatum:     geboortedatum,
 						Geboorteplaats:    record[5],
