@@ -90,7 +90,28 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 		localFile.Close()
 	}
 
-	// 2. If no local CSV, try to download and process CSV from GCP
+	// 2. If no CSV found, try to restore index from GCP backup
+	if s.gcsClient != nil {
+		log.Printf("Attempting to restore index from GCP backup...")
+		if err := s.downloadIndex(ctx); err != nil {
+			log.Printf("Could not download index from GCP: %v", err)
+		} else {
+			log.Printf("Successfully restored index from GCP backup")
+			if err := s.openExistingIndex(); err != nil {
+				log.Printf("Error opening restored index: %v", err)
+			} else {
+				// Rebuild in-memory data from restored index
+				if err := s.rebuildDataFromIndex(); err != nil {
+					log.Printf("Error rebuilding data from restored index: %v", err)
+				} else {
+					s.hasValidIndex = true
+					return s
+				}
+			}
+		}
+	}
+
+	// 3. If no restore index from GCP backup found, try to download and process CSV from GCP
 	if s.gcsClient != nil {
 		log.Printf("Checking for CSV file in GCP bucket...")
 		if reader, err := s.gcsClient.DownloadFile(ctx, csvObject); err == nil {
@@ -116,27 +137,6 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 			}
 		} else {
 			log.Printf("No CSV file found in GCP bucket: %v", err)
-		}
-	}
-
-	// 3. If no CSV found, try to restore index from GCP backup
-	if s.gcsClient != nil {
-		log.Printf("Attempting to restore index from GCP backup...")
-		if err := s.downloadIndex(ctx); err != nil {
-			log.Printf("Could not download index from GCP: %v", err)
-		} else {
-			log.Printf("Successfully restored index from GCP backup")
-			if err := s.openExistingIndex(); err != nil {
-				log.Printf("Error opening restored index: %v", err)
-			} else {
-				// Rebuild in-memory data from restored index
-				if err := s.rebuildDataFromIndex(); err != nil {
-					log.Printf("Error rebuilding data from restored index: %v", err)
-				} else {
-					s.hasValidIndex = true
-					return s
-				}
-			}
 		}
 	}
 
