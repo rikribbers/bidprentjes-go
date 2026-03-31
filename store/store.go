@@ -125,7 +125,7 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 					// Create a backup of the index after processing
 					log.Printf("Creating backup of the index...")
 					// sleep first to let all the flushes go through
-					time.Sleep(20 * time.Second)
+					time.Sleep(30 * time.Second)
 					if err := s.BackupIndex(ctx); err != nil {
 						log.Printf("Warning: Failed to create immediate index backup: %v", err)
 					} else {
@@ -279,19 +279,6 @@ func (s *Store) Close() error {
 	// First, ensure the index is properly closed
 	if err := s.index.Close(); err != nil {
 		log.Printf("Warning: Failed to close index: %v", err)
-	}
-
-	// Then try to sync to GCS if we have a client
-	if s.gcsClient != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		// Try to sync one last time
-		if err := s.uploadIndex(ctx); err != nil {
-			log.Printf("Failed final index sync to GCS: %v", err)
-		} else {
-			log.Printf("Successfully completed final index sync to GCS")
-		}
 	}
 
 	// Finally close the GCS client
