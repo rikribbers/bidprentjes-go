@@ -658,11 +658,6 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 	}()
 
 	csvReader := csv.NewReader(reader)
-	// Skip header
-	if _, err := csvReader.Read(); err != nil {
-		log.Printf("Error reading CSV header: %v", err)
-		return 0, fmt.Errorf("invalid CSV format: %v", err)
-	}
 
 	// Read all records first
 	records, err := csvReader.ReadAll()
