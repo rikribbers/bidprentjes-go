@@ -445,12 +445,14 @@ func (s *Store) Update(b *models.Bidprentje) error {
 		ID:                b.ID,
 		Voornaam:          b.Voornaam,
 		Achternaam:        b.Achternaam,
+		Tussenvoegsel:     b.Tussenvoegsel,
 		Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
 		Geboortejaar:      b.Geboortedatum.Format("2006"),
 		Geboorteplaats:    b.Geboorteplaats,
 		Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
 		Overlijdensjaar:   b.Overlijdensdatum.Format("2006"),
 		Overlijdensplaats: b.Overlijdensplaats,
+		Scan:              b.Scan,
 	}
 
 	return s.index.Index(b.ID, doc)
@@ -620,6 +622,7 @@ func (s *Store) BatchCreate(bidprentjes []*models.Bidprentje) error {
 			ID:                b.ID,
 			Voornaam:          b.Voornaam,
 			Achternaam:        b.Achternaam,
+			Tussenvoegsel:     b.Tussenvoegsel,
 			Geboortedatum:     b.Geboortedatum.Format("2006-01-02"),
 			Geboortejaar:      b.Geboortedatum.Format("2006"),
 			Geboorteplaats:    b.Geboorteplaats,
