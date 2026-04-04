@@ -41,12 +41,6 @@ func (h *Handler) ProcessCSVUpload(reader io.Reader) (int, error) {
 	csvReader.FieldsPerRecord = 9     // Expect exactly 9 fields per record
 	csvReader.TrimLeadingSpace = true // Trim leading space from fields
 
-	// Skip header
-	if _, err := csvReader.Read(); err != nil {
-		log.Printf("Error reading CSV header: %v", err)
-		return 0, fmt.Errorf("invalid CSV format: %v", err)
-	}
-
 	// Read all records first
 	records, err := csvReader.ReadAll()
 	if err != nil {
