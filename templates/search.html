@@ -106,9 +106,9 @@
                         <td>{{.Voornaam}}</td>
                         <td>{{.Tussenvoegsel}}</td>
                         <td>{{.Achternaam}}</td>
-                        <td>{{.Geboortedatum.Format "2006-01-02"}}</td>
+                        <td>{{if not .Geboortedatum.IsZero }}{{.Geboortedatum.Format "2006-01-02"}}{{ end }}</td>
                         <td>{{.Geboorteplaats}}</td>
-                        <td>{{.Overlijdensdatum.Format "2006-01-02"}}</td>
+                        <td>{{if not .Overlijdensdatum.IsZero }}{{.Overlijdensdatum.Format "2006-01-02"}}{{ end }}</td>
                         <td>{{.Overlijdensplaats}}</td>
                         <td>{{if .Scan}}{{$.t.Yes}}{{else}}{{$.t.No}}{{end}}</td>
                     </tr>
