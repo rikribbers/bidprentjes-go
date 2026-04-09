@@ -21,7 +21,7 @@ build: ## Build the application
 clean: ## Remove build artifacts
 	rm -f $(BINARY_NAME)
 	rm -f coverage.out
-	rm -f test_data.csv
+	rm -f data/*.csv
 
 test: ## Run tests
 	$(GOTEST) -v ./...
@@ -36,15 +36,16 @@ fmt: ## Format code
 lint: ## Run linter
 	golangci-lint run
 
-run: build ## Run the application
-	./$(BINARY_NAME)
+run: ## Run the application
+	$(GORUN) main.go
 
 deps: ## Download dependencies
 	$(GOMOD) download
 	$(GOMOD) tidy
 
 generate-data: ## Generate test data
-	$(PYTHON) scripts/generate_test_data.py
+	$(PYTHON) scripts/generate_bidprentjes_data.py
+	$(PYTHON) scripts/generate_scans_data.py
 
 help: ## Display this help screen
 	@grep -h -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

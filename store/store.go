@@ -29,6 +29,7 @@ const (
 	indexPath   = "/tmp/bidprentjes.bleve"
 	indexObject = "index/bidprentjes.bleve.tar.gz"
 	csvObject   = "data/bidprentjes.csv"
+	scansCSV    = "data/scans.csv"
 )
 
 type Store struct {
@@ -42,17 +43,18 @@ type Store struct {
 
 // BleveDocument represents a document in the Bleve index
 type BleveDocument struct {
-	ID                string `json:"id"`
-	Voornaam          string `json:"voornaam"`
-	Achternaam        string `json:"achternaam"`
-	Tussenvoegsel     string `json:"tussenvoegsel"`
-	Geboortedatum     string `json:"geboortedatum"`
-	Geboortejaar      string `json:"geboortejaar"`
-	Geboorteplaats    string `json:"geboorteplaats"`
-	Overlijdensdatum  string `json:"overlijdensdatum"`
-	Overlijdensjaar   string `json:"overlijdensjaar"`
-	Overlijdensplaats string `json:"overlijdensplaats"`
-	Scan              bool   `json:"scan"`
+	ID                string   `json:"id"`
+	Voornaam          string   `json:"voornaam"`
+	Achternaam        string   `json:"achternaam"`
+	Tussenvoegsel     string   `json:"tussenvoegsel"`
+	Geboortedatum     string   `json:"geboortedatum"`
+	Geboortejaar      string   `json:"geboortejaar"`
+	Geboorteplaats    string   `json:"geboorteplaats"`
+	Overlijdensdatum  string   `json:"overlijdensdatum"`
+	Overlijdensjaar   string   `json:"overlijdensjaar"`
+	Overlijdensplaats string   `json:"overlijdensplaats"`
+	Photo             bool     `json:"photo"`
+	Scans             []string `json:"scans"`
 }
 
 func NewStore(ctx context.Context, bucketName string) *Store {
@@ -73,13 +75,22 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 		}
 	}
 
-	// 1. First try to find and process local CSV file
-	if localFile, err := os.Open("bidprentjes.csv"); err == nil {
-		log.Printf("Found local CSV file, processing...")
+	// 1. First try to find and process local CSV files
+	if localFile, err := os.Open(csvObject); err == nil {
+		log.Printf("Found local bidprentjes.csv file at %s, processing...", csvObject)
+		var scanMap map[string][]string
+		if sFile, err := os.Open(scansCSV); err == nil {
+			log.Printf("Found local scans.csv file at %s, processing...", scansCSV)
+			scanMap, _ = s.parseScans(sFile)
+			sFile.Close()
+		} else {
+			log.Printf("No local scans.csv file found at %s", scansCSV)
+		}
+
 		if err := s.createNewIndex(); err != nil {
 			log.Printf("Failed to create new index: %v", err)
 		} else {
-			if _, err := s.ProcessCSVUpload(localFile); err != nil {
+			if _, err := s.ProcessCSVUpload(localFile, scanMap); err != nil {
 				log.Printf("Failed to process local CSV: %v", err)
 			} else {
 				s.hasValidIndex = true
@@ -90,42 +101,48 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 		localFile.Close()
 	}
 
-	// 2. If no CSV found, try to restore index from GCP backup
+	// 2. If no local CSV, try to restore index from GCP backup
 	if s.gcsClient != nil {
 		log.Printf("Attempting to restore index from GCP backup...")
-		if err := s.downloadIndex(ctx); err != nil {
-			log.Printf("Could not download index from GCP: %v", err)
-		} else {
+		if err := s.downloadIndex(ctx); err == nil {
 			log.Printf("Successfully restored index from GCP backup")
-			if err := s.openExistingIndex(); err != nil {
-				log.Printf("Error opening restored index: %v", err)
-			} else {
-				// Rebuild in-memory data from restored index
-				if err := s.rebuildDataFromIndex(); err != nil {
-					log.Printf("Error rebuilding data from restored index: %v", err)
-				} else {
+			if err := s.openExistingIndex(); err == nil {
+				if err := s.rebuildDataFromIndex(); err == nil {
 					s.hasValidIndex = true
 					return s
 				}
+				log.Printf("Error rebuilding data from restored index")
+			} else {
+				log.Printf("Error opening restored index")
 			}
+		} else {
+			log.Printf("Could not download index from GCP")
 		}
 	}
 
-	// 3. If no restore index from GCP backup found, try to download and process CSV from GCP
+	// 3. If no restore index found, try to download and process CSV files from GCP
 	if s.gcsClient != nil {
-		log.Printf("Checking for CSV file in GCP bucket...")
+		log.Printf("Checking for CSV files in GCP bucket...")
 		if reader, err := s.gcsClient.DownloadFile(ctx, csvObject); err == nil {
-			log.Printf("Found CSV file in GCP bucket, processing...")
+			log.Printf("Found bidprentjes.csv in GCP bucket at %s, processing...", csvObject)
+
+			var scanMap map[string][]string
+			if sReader, err := s.gcsClient.DownloadFile(ctx, scansCSV); err == nil {
+				log.Printf("Found scans.csv in GCP bucket at %s, processing...", scansCSV)
+				scanMap, _ = s.parseScans(sReader)
+			} else {
+				log.Printf("No scans.csv found in GCP bucket at %s", scansCSV)
+			}
+
 			if err := s.createNewIndex(); err != nil {
 				log.Printf("Failed to create new index: %v", err)
 			} else {
-				if _, err := s.ProcessCSVUpload(reader); err != nil {
+				if _, err := s.ProcessCSVUpload(reader, scanMap); err != nil {
 					log.Printf("Failed to process GCP CSV file: %v", err)
 				} else {
 					// Create a backup of the index after processing
 					log.Printf("Creating backup of the index...")
-					// sleep first to let all the flushes go through
-					time.Sleep(30 * time.Second)
+					time.Sleep(10 * time.Second)
 					if err := s.BackupIndex(ctx); err != nil {
 						log.Printf("Warning: Failed to create immediate index backup: %v", err)
 					} else {
@@ -136,17 +153,55 @@ func NewStore(ctx context.Context, bucketName string) *Store {
 				}
 			}
 		} else {
-			log.Printf("No CSV file found in GCP bucket: %v", err)
+			log.Printf("No bidprentjes.csv found in GCP bucket at %s: %v", csvObject, err)
 		}
 	}
 
-	// If we get here, we need to create a new empty index
-	log.Printf("Creating new empty index...")
+	// Fallback: create a new empty index
+	log.Printf("Creating new empty index as fallback...")
 	if err := s.createNewIndex(); err != nil {
-		log.Fatalf("Failed to create new index: %v", err)
+		log.Fatalf("Failed to create fallback index: %v", err)
 	}
 
 	return s
+}
+
+// normalizeID removes surrounding whitespace and quotes from an ID
+func normalizeID(id string) string {
+	id = strings.TrimSpace(id)
+	id = strings.Trim(id, "\"")
+	id = strings.Trim(id, "'")
+	return id
+}
+
+// parseScans parses scan metadata from an io.Reader
+func (s *Store) parseScans(reader io.Reader) (map[string][]string, error) {
+	csvReader := csv.NewReader(reader)
+	scans := make(map[string][]string)
+	count := 0
+
+	for {
+		record, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("Error reading scan record: %v", err)
+			return scans, err
+		}
+
+		if len(record) >= 2 {
+			bidprentjeID := normalizeID(record[0])
+			scanID := strings.TrimSpace(record[1])
+			if bidprentjeID != "" && scanID != "" {
+				scans[bidprentjeID] = append(scans[bidprentjeID], scanID)
+				count++
+			}
+		}
+	}
+
+	log.Printf("Successfully processed %d scan records for %d unique bidprentjes", count, len(scans))
+	return scans, nil
 }
 
 // Helper function to create a new index with proper mapping
@@ -186,9 +241,14 @@ func (s *Store) createNewIndex() error {
 	boolFieldMapping.Store = true
 	boolFieldMapping.Index = true
 
+	keywordFieldMapping := bleve.NewTextFieldMapping()
+	keywordFieldMapping.Store = true
+	keywordFieldMapping.Index = true
+	keywordFieldMapping.Analyzer = "keyword"
+
 	// Configure field mappings
-	docMapping.AddFieldMappingsAt("_id", textFieldMapping)
-	docMapping.AddFieldMappingsAt("id", textFieldMapping)
+	docMapping.AddFieldMappingsAt("_id", keywordFieldMapping)
+	docMapping.AddFieldMappingsAt("id", keywordFieldMapping)
 	docMapping.AddFieldMappingsAt("voornaam", textFieldMapping)
 	docMapping.AddFieldMappingsAt("achternaam", textFieldMapping)
 	docMapping.AddFieldMappingsAt("tussenvoegsel", textFieldMapping)
@@ -196,7 +256,8 @@ func (s *Store) createNewIndex() error {
 	docMapping.AddFieldMappingsAt("overlijdensplaats", textFieldMapping)
 	docMapping.AddFieldMappingsAt("geboortedatum", textFieldMapping)
 	docMapping.AddFieldMappingsAt("overlijdensdatum", textFieldMapping)
-	docMapping.AddFieldMappingsAt("scan", boolFieldMapping)
+	docMapping.AddFieldMappingsAt("photo", boolFieldMapping)
+	docMapping.AddFieldMappingsAt("scans", keywordFieldMapping)
 
 	indexMapping.DefaultMapping = docMapping
 	indexMapping.DefaultAnalyzer = "bidprentje"
@@ -254,7 +315,8 @@ func (s *Store) rebuildDataFromIndex() error {
 			Achternaam:        getStringField(hit.Fields, "achternaam"),
 			Geboorteplaats:    getStringField(hit.Fields, "geboorteplaats"),
 			Overlijdensplaats: getStringField(hit.Fields, "overlijdensplaats"),
-			Scan:              getBoolField(hit.Fields, "scan"),
+			Photo:             getBoolField(hit.Fields, "photo"),
+			Scans:             getStringSliceField(hit.Fields, "scans"),
 		}
 
 		// Parse dates
@@ -420,7 +482,8 @@ func (s *Store) Create(b *models.Bidprentje) error {
 		Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
 		Overlijdensjaar:   b.Overlijdensdatum.Format("2006"),
 		Overlijdensplaats: b.Overlijdensplaats,
-		Scan:              b.Scan,
+		Photo:             b.Photo,
+		Scans:             b.Scans,
 	}
 
 	return s.index.Index(b.ID, doc)
@@ -452,7 +515,8 @@ func (s *Store) Update(b *models.Bidprentje) error {
 		Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
 		Overlijdensjaar:   b.Overlijdensdatum.Format("2006"),
 		Overlijdensplaats: b.Overlijdensplaats,
-		Scan:              b.Scan,
+		Photo:             b.Photo,
+		Scans:             b.Scans,
 	}
 
 	return s.index.Index(b.ID, doc)
@@ -529,6 +593,7 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 			{"geboortedatum", 3.0},
 			{"overlijdensjaar", 8.0},
 			{"geboortejaar", 8.0},
+			{"scans", 10.0},
 		}
 
 		for _, f := range exactFields {
@@ -553,6 +618,7 @@ func (s *Store) Search(params models.SearchParams) *models.PaginatedResponse {
 			{"geboortedatum", 3.0},
 			{"overlijdensjaar", 8.0},
 			{"geboortejaar", 8.0},
+			{"scans", 2.0},
 		}
 
 		// Create a fuzzy query for each term in each field
@@ -629,7 +695,8 @@ func (s *Store) BatchCreate(bidprentjes []*models.Bidprentje) error {
 			Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
 			Overlijdensjaar:   b.Geboortedatum.Format("2006"),
 			Overlijdensplaats: b.Overlijdensplaats,
-			Scan:              b.Scan,
+			Photo:             b.Photo,
+			Scans:             b.Scans,
 		}
 
 		if err := batch.Index(b.ID, doc); err != nil {
@@ -641,7 +708,7 @@ func (s *Store) BatchCreate(bidprentjes []*models.Bidprentje) error {
 }
 
 // ProcessCSVUpload processes a CSV file and adds its contents to the index
-func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
+func (s *Store) ProcessCSVUpload(reader io.Reader, scanMap map[string][]string) (int, error) {
 	startTime := time.Now()
 	defer func() {
 		log.Printf("Total upload time: %v", time.Since(startTime))
@@ -733,11 +800,16 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 						}
 					}
 
-					scan := strings.ToLower(record[8]) == "true"
+					id := normalizeID(record[0])
+					photo := strings.ToLower(strings.TrimSpace(record[8])) == "true"
+					var scans []string
+					if foundScans, ok := scanMap[id]; ok {
+						scans = foundScans
+					}
 
 					// Create record regardless of dates - they can be empty
 					bidprentje := &models.Bidprentje{
-						ID:                record[0],
+						ID:                id,
 						Voornaam:          record[1],
 						Tussenvoegsel:     record[2],
 						Achternaam:        record[3],
@@ -745,7 +817,8 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 						Geboorteplaats:    record[5],
 						Overlijdensdatum:  overlijdensdatum,
 						Overlijdensplaats: record[7],
-						Scan:              scan,
+						Photo:             photo,
+						Scans:             scans,
 					}
 
 					batch = append(batch, bidprentje)
@@ -772,9 +845,8 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 	}()
 
 	// Process results immediately as they arrive
-	processedChunks := make([]bool, chunks)
-	nextChunkToProcess := 0
 	var lastError error
+	processedCount := 0
 
 	for result := range resultChan {
 		if result.err != nil {
@@ -782,21 +854,14 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 			continue
 		}
 
-		// Mark this chunk as processed
-		processedChunks[result.chunkNum] = true
-
-		// Process any consecutive chunks that are ready
-		for nextChunkToProcess < chunks && processedChunks[nextChunkToProcess] {
-			// Get the batch for this chunk from the results
-			if err := s.BatchCreate(result.batch); err != nil {
-				log.Printf("Error storing batch %d: %v", nextChunkToProcess, err)
-				lastError = err
-			}
-
-			// Return batch to pool
-			batchPool.Put(result.batch)
-			nextChunkToProcess++
+		if err := s.BatchCreate(result.batch); err != nil {
+			log.Printf("Error storing batch: %v", err)
+			lastError = err
 		}
+
+		processedCount += len(result.batch)
+		// Return batch to pool
+		batchPool.Put(result.batch)
 	}
 
 	if lastError != nil {
@@ -807,7 +872,7 @@ func (s *Store) ProcessCSVUpload(reader io.Reader) (int, error) {
 	s.hasValidIndex = true
 	s.mu.Unlock()
 
-	log.Printf("Successfully processed all %d records in %v", totalRecords, time.Since(startTime))
+	log.Printf("Successfully processed all %d records", totalRecords)
 	return totalRecords, nil
 }
 
@@ -921,6 +986,24 @@ func getStringField(fields map[string]interface{}, key string) string {
 		return val
 	}
 	return "" // Return an empty string if the field is nil or not a string
+}
+
+// Helper function to safely get a string slice field
+func getStringSliceField(fields map[string]interface{}, key string) []string {
+	if val, ok := fields[key].([]interface{}); ok {
+		result := make([]string, 0, len(val))
+		for _, v := range val {
+			if s, ok := v.(string); ok {
+				result = append(result, s)
+			}
+		}
+		return result
+	}
+	// Handle single string case
+	if val, ok := fields[key].(string); ok {
+		return []string{val}
+	}
+	return nil
 }
 
 // Helper function to safely get a boolean field
