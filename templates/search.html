@@ -4,58 +4,46 @@
     <title>{{.t.Search}}</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/flag-icon-css@4.1.7/css/flag-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" rel="stylesheet">
     <style>
-        .language-switch {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 1000;
-            background: white;
-            padding: 8px;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        .fi {
+            width: 1.2em;
+            height: 1.2em;
+            margin-right: 0.5rem;
         }
-        .language-option {
-            cursor: pointer;
-            margin-left: 0.5rem;
-            opacity: 0.5;
-            display: inline-flex;
+        .language-dropdown .dropdown-item {
+            display: flex;
             align-items: center;
         }
-        .language-option:first-child {
-            margin-left: 0;
-        }
-        .language-option:hover {
-            opacity: 0.8;
-        }
-        .language-option.active {
-            opacity: 1;
-        }
-        .flag-icon {
-            width: 1.5em;
-            height: 1.5em;
+        .language-dropdown .dropdown-item.active {
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div class="language-switch">
-        {{range .languages}}
-        <span class="language-option {{if eq $.lang .Code}}active{{end}}" 
-              onclick="switchLanguage('{{.Code}}')" 
-              title="{{.Name}}">
-            <span class="flag-icon flag-icon-{{.Flag}}"></span>
-        </span>
-        {{end}}
-    </div>
-
     <div class="container mt-5">
-        <div class="row mb-4">
+        <div class="row mb-4 align-items-center">
             <div class="col">
                 <h1>{{.t.Search}}</h1>
-                <p class="lead">{{.description}}</p>
+                <p class="lead mb-0">{{.description}}</p>
+            </div>
+            <div class="col-auto">
+                <div class="dropdown language-dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        {{range .languages}}{{if eq $.lang .Code}}<span class="fi fi-{{.Flag}} me-2"></span> {{.Name}}{{end}}{{end}}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
+                        {{range .languages}}
+                        <li>
+                            <button class="dropdown-item {{if eq $.lang .Code}}active{{end}}" type="button" onclick="switchLanguage('{{.Code}}')">
+                                <span class="fi fi-{{.Flag}} me-2"></span> {{.Name}}
+                            </button>
+                        </li>
+                        {{end}}
+                    </ul>
+                </div>
             </div>
         </div>
 
@@ -85,8 +73,8 @@
         </div>
 
         <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
+            <table class="table table-striped table-hover align-middle">
+                <thead class="table-light">
                     <tr>
                         <th>{{.t.ID}}</th>
                         <th>{{.t.FirstName}}</th>
@@ -96,7 +84,8 @@
                         <th>{{.t.BirthPlace}}</th>
                         <th>{{.t.DeathDate}}</th>
                         <th>{{.t.DeathPlace}}</th>
-                        <th>{{.t.HasScan}}</th>
+                        <th>{{.t.HasPhoto}}</th>
+                        <th>{{.t.Scans}}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -110,7 +99,13 @@
                         <td>{{.Geboorteplaats}}</td>
                         <td>{{if not .Overlijdensdatum.IsZero }}{{.Overlijdensdatum.Format "2006-01-02"}}{{ end }}</td>
                         <td>{{.Overlijdensplaats}}</td>
-                        <td>{{if .Scan}}{{$.t.Yes}}{{else}}{{$.t.No}}{{end}}</td>
+                        <td>{{if .Photo}}{{$.t.Yes}}{{else}}{{$.t.No}}{{end}}</td>
+                        <td>
+                            {{range $index, $scan := .Scans}}
+                                {{if gt $index 0}}, {{end}}
+                                <a href="{{$.cdnBaseURL}}{{$scan}}.jpg" target="_blank">{{add $index 1}}</a>
+                            {{end}}
+                        </td>
                     </tr>
                     {{end}}
                 </tbody>
@@ -181,7 +176,7 @@
         {{end}}
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     function switchLanguage(lang) {
         // Store language preference

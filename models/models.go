@@ -14,21 +14,23 @@ type Bidprentje struct {
 	Geboorteplaats    string    `json:"geboorteplaats"`
 	Overlijdensdatum  time.Time `json:"overlijdensdatum"`
 	Overlijdensplaats string    `json:"overlijdensplaats"`
-	Scan              bool      `json:"scan"`
+	Photo             bool      `json:"photo"`
+	Scans             []string  `json:"scans"`
 }
 
 // MarshalJSON implements custom JSON marshaling for Bidprentje
 func (b Bidprentje) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
-		ID                string `json:"id"`
-		Voornaam          string `json:"voornaam"`
-		Tussenvoegsel     string `json:"tussenvoegsel"`
-		Achternaam        string `json:"achternaam"`
-		Geboortedatum     string `json:"geboortedatum"`
-		Geboorteplaats    string `json:"geboorteplaats"`
-		Overlijdensdatum  string `json:"overlijdensdatum"`
-		Overlijdensplaats string `json:"overlijdensplaats"`
-		Scan              bool   `json:"scan"`
+		ID                string   `json:"id"`
+		Voornaam          string   `json:"voornaam"`
+		Tussenvoegsel     string   `json:"tussenvoegsel"`
+		Achternaam        string   `json:"achternaam"`
+		Geboortedatum     string   `json:"geboortedatum"`
+		Geboorteplaats    string   `json:"geboorteplaats"`
+		Overlijdensdatum  string   `json:"overlijdensdatum"`
+		Overlijdensplaats string   `json:"overlijdensplaats"`
+		Photo             bool     `json:"photo"`
+		Scans             []string `json:"scans"`
 	}{
 		ID:                b.ID,
 		Voornaam:          b.Voornaam,
@@ -38,22 +40,24 @@ func (b Bidprentje) MarshalJSON() ([]byte, error) {
 		Geboorteplaats:    b.Geboorteplaats,
 		Overlijdensdatum:  b.Overlijdensdatum.Format("2006-01-02"),
 		Overlijdensplaats: b.Overlijdensplaats,
-		Scan:              b.Scan,
+		Photo:             b.Photo,
+		Scans:             b.Scans,
 	})
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Bidprentje
 func (b *Bidprentje) UnmarshalJSON(data []byte) error {
 	aux := &struct {
-		ID                string `json:"id"`
-		Voornaam          string `json:"voornaam"`
-		Tussenvoegsel     string `json:"tussenvoegsel"`
-		Achternaam        string `json:"achternaam"`
-		Geboortedatum     string `json:"geboortedatum"`
-		Geboorteplaats    string `json:"geboorteplaats"`
-		Overlijdensdatum  string `json:"overlijdensdatum"`
-		Overlijdensplaats string `json:"overlijdensplaats"`
-		Scan              bool   `json:"scan"`
+		ID                string   `json:"id"`
+		Voornaam          string   `json:"voornaam"`
+		Tussenvoegsel     string   `json:"tussenvoegsel"`
+		Achternaam        string   `json:"achternaam"`
+		Geboortedatum     string   `json:"geboortedatum"`
+		Geboorteplaats    string   `json:"geboorteplaats"`
+		Overlijdensdatum  string   `json:"overlijdensdatum"`
+		Overlijdensplaats string   `json:"overlijdensplaats"`
+		Photo             bool     `json:"photo"`
+		Scans             []string `json:"scans"`
 	}{}
 
 	if err := json.Unmarshal(data, &aux); err != nil {
@@ -66,7 +70,8 @@ func (b *Bidprentje) UnmarshalJSON(data []byte) error {
 	b.Achternaam = aux.Achternaam
 	b.Geboorteplaats = aux.Geboorteplaats
 	b.Overlijdensplaats = aux.Overlijdensplaats
-	b.Scan = aux.Scan
+	b.Photo = aux.Photo
+	b.Scans = aux.Scans
 
 	var err error
 	if aux.Geboortedatum != "" {

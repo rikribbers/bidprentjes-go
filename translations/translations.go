@@ -50,7 +50,8 @@ type Translations struct {
 	Uploading            string
 	SearchResults        string
 	TotalResults         string
-	HasScan              string
+	HasPhoto             string
+	Scans                string
 	NoResults            string
 	Page                 string
 	Of                   string
@@ -97,7 +98,8 @@ var translations = map[string]Translations{
 		Uploading:            "Uploading...",
 		SearchResults:        "Search Results",
 		TotalResults:         "Total Results",
-		HasScan:              "Photo",
+		HasPhoto:             "Photo",
+		Scans:                "Scan",
 		NoResults:            "No results found",
 		Page:                 "Page",
 		Of:                   "of",
@@ -142,7 +144,8 @@ var translations = map[string]Translations{
 		Uploading:            "Uploaden...",
 		SearchResults:        "Zoekresultaten",
 		TotalResults:         "Totaal aantal resultaten",
-		HasScan:              "Foto",
+		HasPhoto:             "Foto",
+		Scans:                "Scan",
 		NoResults:            "Geen resultaten gevonden",
 		Page:                 "Pagina",
 		Of:                   "van",
@@ -187,7 +190,8 @@ var translations = map[string]Translations{
 		Uploading:            "Wird hochgeladen...",
 		SearchResults:        "Suchergebnisse",
 		TotalResults:         "Gesamtergebnisse",
-		HasScan:              "Foto",
+		HasPhoto:             "Foto",
+		Scans:                "Scan",
 		NoResults:            "Keine Ergebnisse gefunden",
 		Page:                 "Seite",
 		Of:                   "von",

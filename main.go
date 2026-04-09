@@ -27,12 +27,22 @@ func main() {
 		log.Printf("Warning: STORAGE_BUCKET environment variable not set, running in local-only mode")
 	}
 
+	cdnBaseURL := os.Getenv("CDN_BASE_URL")
+	if cdnBaseURL == "" {
+		log.Printf("Warning: CDN_BASE_URL environment variable not set")
+	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	// Initialize store with bucket name
 	store := store.NewStore(ctx, bucketName)
 	defer store.Close()
 
 	// Initialize handlers with store
-	handler := handlers.NewHandler(store)
+	handler := handlers.NewHandler(store, cdnBaseURL)
 
 	// Create Gin router
 	r := gin.Default()
@@ -70,7 +80,7 @@ func main() {
 
 	// Create a server with timeouts
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + port,
 		Handler: r,
 		// Set timeouts to prevent hanging connections
 		ReadTimeout:    10 * time.Second,
