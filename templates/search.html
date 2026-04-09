@@ -103,7 +103,7 @@
                         <td>
                             {{range $index, $scan := .Scans}}
                                 {{if gt $index 0}}, {{end}}
-                                <a href="{{$.cdnBaseURL}}{{$scan}}.jpg" target="_blank">{{add $index 1}}</a>
+                                <a href="{{$.cdnBaseURL}}/{{$scan}}.jpg" target="_blank">{{add $index 1}}</a>
                             {{end}}
                         </td>
                     </tr>
