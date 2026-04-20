@@ -405,6 +405,25 @@ func createTarGz(src string, writer io.Writer) error {
 	})
 }
 
+func safeJoin(baseDir, entryName string) (string, error) {
+	if filepath.IsAbs(entryName) {
+		return "", fmt.Errorf("invalid archive entry path: absolute path not allowed: %q", entryName)
+	}
+
+	baseClean := filepath.Clean(baseDir)
+	target := filepath.Join(baseClean, entryName)
+
+	rel, err := filepath.Rel(baseClean, target)
+	if err != nil {
+		return "", fmt.Errorf("failed to validate archive entry path %q: %v", entryName, err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid archive entry path: traversal detected: %q", entryName)
+	}
+
+	return target, nil
+}
+
 func extractTarGz(reader io.Reader, dst string) error {
 	gzReader, err := gzip.NewReader(reader)
 	if err != nil {
@@ -428,8 +447,11 @@ func extractTarGz(reader io.Reader, dst string) error {
 			return fmt.Errorf("failed to read tar header: %v", err)
 		}
 
-		// Get the target path
-		target := filepath.Join(dst, header.Name)
+		// Get and validate the target path to prevent path traversal
+		target, err := safeJoin(dst, header.Name)
+		if err != nil {
+			return err
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
