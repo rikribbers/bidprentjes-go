@@ -1,7 +1,7 @@
 # Bidprentjes Search API
 
 A high-performance web application designed for searching and viewing memorial card (*bidprentjes*) records. This application leverages the speed of Go and the powerful indexing capabilities of the Bleve search engine to provide a seamless search experience across large datasets.
-<!-- magical space -->
+
 ## Key Features
 
 - **Advanced Search**: Full-text search with support for both fuzzy and exact matching across names (first name, prefix, last name), dates (birth, death, years), and locations.
