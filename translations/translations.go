@@ -58,6 +58,7 @@ type Translations struct {
 	ID                   string
 	ExactMatch           string
 	ViewScans            string
+	DownloadScan         string
 }
 
 var translations = map[string]Translations{
@@ -107,6 +108,7 @@ var translations = map[string]Translations{
 		ID:                   "ID",
 		ExactMatch:           "Exact matches only",
 		ViewScans:            "View scans",
+		DownloadScan:         "Download image",
 	},
 	"nl": {
 		Search:               "Bidprentjes zoeken",
@@ -154,6 +156,7 @@ var translations = map[string]Translations{
 		ID:                   "ID",
 		ExactMatch:           "Alleen exacte overeenkomsten",
 		ViewScans:            "Bekijk scans",
+		DownloadScan:         "Download afbeelding",
 	},
 	"de": {
 		Search:               "Bidprentjes suchen",
@@ -201,6 +204,7 @@ var translations = map[string]Translations{
 		ID:                   "ID",
 		ExactMatch:           "Nur exakte Übereinstimmungen",
 		ViewScans:            "Scans ansehen",
+		DownloadScan:         "Bild herunterladen",
 	},
 }
 

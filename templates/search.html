@@ -26,9 +26,24 @@
             text-decoration: none;
             font-size: 1.25rem;
             cursor: pointer;
+            display: inline-block;
         }
         .scan-viewer-trigger:hover {
             color: var(--bs-primary);
+        }
+        .scan-viewer-trigger.is-loading i {
+            animation: scan-viewer-spin 0.8s linear infinite;
+        }
+        @keyframes scan-viewer-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .pswp__button--download-button {
+            background: none;
+        }
+        .pswp__button--download-button svg {
+            width: 24px;
+            height: 24px;
         }
     </style>
 </head>
@@ -117,7 +132,7 @@
                             </a>
                             <div id="gallery-{{.ID}}" class="pswp-gallery d-none">
                                 {{range $index, $scan := .Scans}}
-                                <a href="{{$.cdnBaseURL}}/{{$scan}}.jpg" data-pswp-width="2000" data-pswp-height="2800" target="_blank" rel="noreferrer">
+                                <a href="{{$.cdnBaseURL}}/{{$scan}}.jpg" data-pswp-guid="{{$scan}}" target="_blank" rel="noreferrer">
                                     {{add $index 1}}
                                 </a>
                                 {{end}}
@@ -198,32 +213,172 @@
     <script type="module">
     import PhotoSwipeLightbox from 'https://unpkg.com/photoswipe@5/dist/photoswipe-lightbox.esm.js';
 
+    const downloadLabel = "{{.t.DownloadScan}}";
+
+    // Cache of resolved natural image dimensions, keyed by image URL,
+    // so re-opening a gallery within the same page load doesn't re-probe.
+    const dimensionCache = new Map();
+
+    // Resolves the natural width/height of an image without blocking on
+    // anything else. Resolves to null if the image fails to load (e.g. 404),
+    // in which case PhotoSwipe falls back to sizing the slide to the viewport.
+    function resolveImageDimensions(url) {
+        if (dimensionCache.has(url)) {
+            return Promise.resolve(dimensionCache.get(url));
+        }
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const dims = { width: img.naturalWidth, height: img.naturalHeight };
+                dimensionCache.set(url, dims);
+                resolve(dims);
+            };
+            img.onerror = () => {
+                dimensionCache.set(url, null);
+                resolve(null);
+            };
+            img.src = url;
+        });
+    }
+
+    // Applies a resolved width/height to a gallery <a> element's
+    // data-pswp-width / data-pswp-height attributes, which PhotoSwipe reads
+    // when it (lazily) builds slide data for that item.
+    function applyDimensionsToAnchor(anchor, dims) {
+        if (!dims) {
+            return;
+        }
+        anchor.dataset.pswpWidth = String(dims.width);
+        anchor.dataset.pswpHeight = String(dims.height);
+    }
+
+    // Fully re-applies the correct size to an already-constructed slide.
+    // Needed as a fallback for the rare case where a slide was built before
+    // its real dimensions were known (e.g. very fast navigation). Mirrors the
+    // internal sequence PhotoSwipe itself uses on resize (see Slide.resize()
+    // in the PhotoSwipe source): recompute zoom levels/pan bounds from the
+    // corrected width/height, then re-apply the displayed content size.
+    function correctSlideDimensions(content, width, height) {
+        const slide = content.slide;
+        if (!slide || (slide.width === width && slide.height === height)) {
+            return;
+        }
+        content.width = width;
+        content.height = height;
+        slide.width = width;
+        slide.height = height;
+        slide.calculateSize();
+        slide.currentResolution = 0;
+        slide.zoomAndPanToInitial();
+        slide.applyCurrentZoomPan();
+        slide.updateContentSize(true);
+    }
+
     document.querySelectorAll('.scan-viewer-trigger').forEach(trigger => {
         const gallerySel = '#' + trigger.dataset.scanGallery;
+        const galleryEl = document.querySelector(gallerySel);
+        const anchors = galleryEl ? Array.from(galleryEl.querySelectorAll('a')) : [];
+        const icon = trigger.querySelector('i');
+
         const lightbox = new PhotoSwipeLightbox({
             gallery: gallerySel,
             children: 'a',
             pswpModule: () => import('https://unpkg.com/photoswipe@5/dist/photoswipe.esm.js'),
         });
 
+        // Surface the scan's GUID onto the slide's itemData so the download
+        // button can build a same-origin download URL for the active slide.
+        lightbox.addFilter('itemData', (itemData) => {
+            if (itemData.element) {
+                itemData.guid = itemData.element.dataset.pswpGuid;
+            }
+            return itemData;
+        });
+
+        // Fallback: if a slide ever displays with incorrect dimensions
+        // (placeholder/viewport-sized), correct it once the real image has
+        // loaded, using the full PhotoSwipe-internal recompute sequence.
         lightbox.on('contentLoad', (e) => {
             const { content } = e;
             if (content.type === 'image' && content.element) {
                 content.element.onload = () => {
-                    content.width = content.element.naturalWidth;
-                    content.height = content.element.naturalHeight;
-                    if (content.slide) {
-                        content.slide.updateSize(true);
+                    const w = content.element.naturalWidth;
+                    const h = content.element.naturalHeight;
+                    if (w && h) {
+                        correctSlideDimensions(content, w, h);
                     }
                 };
             }
         });
 
+        // Add a "download image" button to the PhotoSwipe toolbar, proxied
+        // through our own backend (the CDN does not send CORS headers, so a
+        // plain cross-origin <a download> link would just open the image
+        // instead of downloading it).
+        lightbox.on('uiRegister', () => {
+            lightbox.pswp.ui.registerElement({
+                name: 'download-button',
+                order: 8,
+                isButton: true,
+                tagName: 'a',
+                title: downloadLabel,
+                html: {
+                    isCustomSVG: true,
+                    inner: '<path d="M20.5 14.3 17.1 18V10h-2.2v7.9l-3.4-3.6L10 16l6 6.1 6-6.1ZM23 23H9v2h14Z" id="pswp__icn-download"/>',
+                    outlineID: 'pswp__icn-download',
+                },
+                onInit: (el, pswp) => {
+                    el.setAttribute('target', '_blank');
+                    el.setAttribute('rel', 'noopener');
+                    const updateHref = () => {
+                        const guid = pswp.currSlide && pswp.currSlide.data && pswp.currSlide.data.guid;
+                        if (guid) {
+                            el.href = '/download/' + guid;
+                            el.setAttribute('download', guid + '.jpg');
+                        }
+                    };
+                    pswp.on('change', updateHref);
+                    updateHref();
+                },
+            });
+        });
+
         lightbox.init();
 
-        trigger.addEventListener('click', (ev) => {
+        trigger.addEventListener('click', async (ev) => {
             ev.preventDefault();
+            if (trigger.classList.contains('is-loading')) {
+                return;
+            }
+
+            const firstAnchor = anchors[0];
+            if (firstAnchor && !(firstAnchor.dataset.pswpWidth && firstAnchor.dataset.pswpHeight)) {
+                // Resolve the first image's real dimensions before opening,
+                // so the gallery opens with the correct aspect ratio from
+                // the very first frame (no stretch/reshape flash).
+                trigger.classList.add('is-loading');
+                if (icon) {
+                    icon.className = 'bi bi-arrow-repeat';
+                }
+                const dims = await resolveImageDimensions(firstAnchor.href);
+                applyDimensionsToAnchor(firstAnchor, dims);
+                trigger.classList.remove('is-loading');
+                if (icon) {
+                    icon.className = 'bi bi-images';
+                }
+            }
+
             lightbox.loadAndOpen(0);
+
+            // Resolve the remaining images' dimensions in the background so
+            // that by the time the user navigates to them, PhotoSwipe
+            // already has the correct aspect ratio available.
+            anchors.slice(1).forEach((anchor) => {
+                if (anchor.dataset.pswpWidth && anchor.dataset.pswpHeight) {
+                    return;
+                }
+                resolveImageDimensions(anchor.href).then((dims) => applyDimensionsToAnchor(anchor, dims));
+            });
         });
     });
     </script>
