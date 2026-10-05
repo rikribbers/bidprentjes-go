@@ -77,6 +77,7 @@ func main() {
 
 	// Keep only search and upload web endpoints
 	r.GET("/search", handler.WebSearch)
+	r.GET("/download/:guid", handler.DownloadScan)
 
 	// Create a server with timeouts
 	srv := &http.Server{
