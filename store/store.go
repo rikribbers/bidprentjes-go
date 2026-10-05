@@ -406,11 +406,19 @@ func createTarGz(src string, writer io.Writer) error {
 }
 
 func safeJoin(baseDir, entryName string) (string, error) {
-	cleanEntry := filepath.Clean(entryName)
-	if filepath.IsAbs(cleanEntry) {
+	normalized := strings.ReplaceAll(entryName, "\\", "/")
+	cleanEntry := filepath.Clean(normalized)
+
+	if cleanEntry == "." || cleanEntry == "" {
+		return "", fmt.Errorf("invalid archive entry path: empty path not allowed: %q", entryName)
+	}
+	if strings.HasPrefix(cleanEntry, "/") || filepath.IsAbs(cleanEntry) {
 		return "", fmt.Errorf("invalid archive entry path: absolute path not allowed: %q", entryName)
 	}
-	if cleanEntry == ".." || strings.HasPrefix(cleanEntry, ".."+string(os.PathSeparator)) {
+	if strings.Contains(cleanEntry, ":") {
+		return "", fmt.Errorf("invalid archive entry path: drive path not allowed: %q", entryName)
+	}
+	if cleanEntry == ".." || strings.HasPrefix(cleanEntry, ".."+string(os.PathSeparator)) || strings.HasPrefix(cleanEntry, "../") {
 		return "", fmt.Errorf("invalid archive entry path: traversal detected: %q", entryName)
 	}
 
@@ -424,8 +432,11 @@ func safeJoin(baseDir, entryName string) (string, error) {
 		return "", fmt.Errorf("failed to resolve archive entry path %q: %v", entryName, err)
 	}
 
-	basePrefix := baseAbs + string(os.PathSeparator)
-	if targetAbs != baseAbs && !strings.HasPrefix(targetAbs, basePrefix) {
+	rel, err := filepath.Rel(baseAbs, targetAbs)
+	if err != nil {
+		return "", fmt.Errorf("failed to verify archive entry path %q: %v", entryName, err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 		return "", fmt.Errorf("invalid archive entry path: traversal detected: %q", entryName)
 	}
 
